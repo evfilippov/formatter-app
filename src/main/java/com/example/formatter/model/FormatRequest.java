@@ -1,3 +1,7 @@
 package com.example.formatter.model;
 
-public record FormatRequest(String type, String input) {}
+public record FormatRequest(
+  String type,       // "json" | "xml"
+  String input,
+  FormatOptions options
+) {}

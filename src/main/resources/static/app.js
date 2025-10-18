@@ -1,3 +1,17 @@
+function navigate(hash) {
+  window.location.hash = hash;
+  onRoute();
+}
+function onRoute() {
+  const routes = ["home", "logs", "json", "xml"];
+  const h = window.location.hash?.substring(1) || "home";
+  for (const r of routes) {
+    document.getElementById(r).classList.toggle("hidden", r !== h);
+  }
+}
+window.addEventListener("hashchange", onRoute);
+window.addEventListener("load", onRoute);
+
 async function postJson(url, body) {
   const resp = await fetch(url, {
     method: "POST",
@@ -6,26 +20,26 @@ async function postJson(url, body) {
   });
   return await resp.json();
 }
+async function postMultipart(url, formData) {
+  const resp = await fetch(url, { method: "POST", body: formData });
+  return await resp.json();
+}
+function setText(id, text) {
+  document.getElementById(id).textContent = text ?? "";
+}
 
-document.getElementById("btnPretty").addEventListener("click", async () => {
-  const input = document.getElementById("jsonInput").value;
-  const res = await postJson("/api/format/pretty", { type: "json", input });
-  const out = document.getElementById("jsonOutput");
-  out.textContent = res.output ?? (res.errors?.join("\n") || "Ошибка");
-});
-
-document.getElementById("btnMinify").addEventListener("click", async () => {
-  const input = document.getElementById("jsonInput").value;
-  const res = await postJson("/api/format/minify", { type: "json", input });
-  const out = document.getElementById("jsonOutput");
-  out.textContent = res.output ?? (res.errors?.join("\n") || "Ошибка");
-});
-
-document.getElementById("btnValidate").addEventListener("click", async () => {
-  const input = document.getElementById("jsonInput").value;
-  const res = await postJson("/api/format/validate", { type: "json", input });
-  const out = document.getElementById("jsonOutput");
-  out.textContent = res.errors?.length ? res.errors.join("\n") : "OK";
+// -------- LOGS --------
+document.getElementById("logsFile").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  const info = document.getElementById("logsFileInfo");
+  if (!f) {
+    info.textContent = "";
+    return;
+  }
+  info.textContent = `${f.name} (${f.size} байт)`;
+  // читаем в textarea:
+  const txt = await f.text();
+  document.getElementById("logsInput").value = txt;
 });
 
 document.getElementById("btnNormalize").addEventListener("click", async () => {
@@ -38,63 +52,94 @@ document.getElementById("btnNormalize").addEventListener("click", async () => {
     document.getElementById("minLen").value || "50",
     10
   );
-
   const body = {
     input,
     replaceEscapedNewlines,
     enabledPatterns: pats,
     minAfterColonLength,
   };
+
   const res = await postJson("/api/logs/normalize", body);
 
-  const stats = document.getElementById("stats");
-  stats.textContent = `Записей: ${res.stats.totalEntries}, извлечено: ${res.stats.extracted}, уникальных: ${res.stats.unique}, дубликатов: ${res.stats.duplicates}, ${res.stats.durationMs} мс`;
+  setText(
+    "logsStats",
+    `Записей: ${res.stats.totalEntries}, извлечено: ${res.stats.extracted}, уникальных: ${res.stats.unique}, дубликатов: ${res.stats.duplicates}, ${res.stats.durationMs} мс`
+  );
 
-  const items = document.getElementById("items");
-  items.innerHTML = "";
+  // Экспорт
+  const exportText = res.export?.asText || "";
+  const btnDownload = document.getElementById("btnDownload");
+  const btnCopyExport = document.getElementById("btnCopyExport");
+  btnDownload.disabled = !exportText;
+  btnCopyExport.disabled = !exportText;
+  btnDownload.onclick = () =>
+    downloadText(exportText, res.export?.filename || "output.json");
+  btnCopyExport.onclick = () => navigator.clipboard.writeText(exportText);
 
-  const byNumber = {};
-  for (const it of res.items) {
-    if (it.duplicateOf) continue;
-    byNumber[it.number] = it;
-  }
-  const ordered = Object.keys(byNumber)
-    .map(Number)
-    .sort((a, b) => a - b)
-    .map((k) => byNumber[k]);
+  const showOnlyUnique = document.getElementById("showOnlyUnique").checked;
+  const showDuplicates = document.getElementById("showDuplicates").checked;
 
-  for (const it of ordered) {
+  const itemsDiv = document.getElementById("logsItems");
+  itemsDiv.innerHTML = "";
+  const items = res.items || [];
+  for (const it of items) {
+    const isDup = it.duplicateOf !== null && it.duplicateOf !== undefined;
+    if (showOnlyUnique && isDup && !showDuplicates) continue;
+
     const div = document.createElement("div");
     div.className = "item-card";
     div.innerHTML = `
       <div class="item-header">
-        <div>СООБЩЕНИЕ ${it.number}: ${it.key.toUpperCase()}</div>
-        <div><span class="badge">lines: ${
-          it.lines
-        }</span> <span class="badge">value: ${it.valueCount}</span></div>
+        <div>СООБЩЕНИЕ ${it.number}: ${it.key.toUpperCase()}
+          <span class="badge">hash: ${it.hash.slice(0, 8)}…</span>
+        </div>
+        <div>
+          <span class="badge">lines: ${it.lines}</span>
+          <span class="badge">value: ${it.valueCount}</span>
+          <span class="badge">raw: ${it.rawLength}</span>
+        </div>
       </div>
       <div style="margin:4px 0; color:#444;">${it.description || ""}</div>
-      <pre class="code">${it.pretty}</pre>
-      <div style="display:flex; gap:8px; flex-wrap: wrap;">
+      ${
+        isDup
+          ? '<div class="badge dup">Дубликат (оригинал: № ' +
+            it.number +
+            ")</div>"
+          : ""
+      }
+      <pre class="output">${it.pretty}</pre>
+      <div class="buttons">
         <button class="copyJson">Копировать JSON</button>
         <button class="copyBlock">Копировать блок (как в output.json)</button>
-        <span class="badge">hash: ${it.hash.slice(0, 8)}…</span>
+        <button class="dlJson">Скачать JSON</button>
       </div>
     `;
-    items.appendChild(div);
-    div.querySelector(".copyJson").addEventListener("click", () => {
-      navigator.clipboard.writeText(it.pretty);
-    });
+    itemsDiv.appendChild(div);
+    div
+      .querySelector(".copyJson")
+      .addEventListener("click", () =>
+        navigator.clipboard.writeText(it.pretty)
+      );
     div.querySelector(".copyBlock").addEventListener("click", () => {
       const sep = buildSeparator(it.number, it.key, it.description, true);
       navigator.clipboard.writeText(sep + it.pretty);
     });
+    div
+      .querySelector(".dlJson")
+      .addEventListener("click", () =>
+        downloadText(it.pretty, `message-${it.number}.json`)
+      );
   }
+});
 
-  const btnDownload = document.getElementById("btnDownload");
-  btnDownload.disabled = !res.export?.asText;
-  btnDownload.onclick = () =>
-    downloadText(res.export.asText, res.export.filename || "output.json");
+document.getElementById("btnLogsReset").addEventListener("click", () => {
+  document.getElementById("logsInput").value = "";
+  document.getElementById("logsFile").value = "";
+  setText("logsFileInfo", "");
+  setText("logsStats", "");
+  document.getElementById("logsItems").innerHTML = "";
+  document.getElementById("btnDownload").disabled = true;
+  document.getElementById("btnCopyExport").disabled = true;
 });
 
 function buildSeparator(number, key, description, first) {
@@ -116,6 +161,114 @@ function buildSeparator(number, key, description, first) {
   return s;
 }
 
+// -------- JSON --------
+document.getElementById("jsonFile").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  const info = document.getElementById("jsonFileInfo");
+  if (!f) {
+    info.textContent = "";
+    return;
+  }
+  info.textContent = `${f.name} (${f.size} байт)`;
+  const txt = await f.text();
+  document.getElementById("jsonInput").value = txt;
+});
+
+async function jsonAction(action) {
+  const input = document.getElementById("jsonInput").value;
+  const res = await postJson(`/api/format/${action}`, { type: "json", input });
+  const out = res.output ?? "";
+  document.getElementById("jsonOutput").textContent = out;
+  document.getElementById("jsonStats").textContent = res.stats
+    ? `Вход: ${res.stats.inputBytes} B, Выход: ${res.stats.outputBytes} B, ${res.stats.durationMs} мс`
+    : "";
+  document.getElementById("jsonErrors").textContent =
+    res.errors && res.errors.length ? res.errors.join("\n") : "";
+  const integ = res.integrity;
+  document.getElementById("jsonIntegrity").textContent = integ
+    ? `Целостность: strict=${integ.equalStrict}, normalized=${
+        integ.equalNormalized
+      }, in=${integ.inputHash?.slice(0, 8)}…, out=${integ.outputHash?.slice(
+        0,
+        8
+      )}…`
+    : "";
+  document.getElementById("btnCopyJson").disabled = !out;
+  document.getElementById("btnDownloadJson").disabled = !out;
+  document.getElementById("btnCopyJson").onclick = () =>
+    navigator.clipboard.writeText(out);
+  document.getElementById("btnDownloadJson").onclick = () =>
+    downloadText(out, "result.json");
+}
+document
+  .getElementById("btnPretty")
+  .addEventListener("click", () => jsonAction("pretty"));
+document
+  .getElementById("btnMinify")
+  .addEventListener("click", () => jsonAction("minify"));
+document
+  .getElementById("btnValidate")
+  .addEventListener("click", () => jsonAction("validate"));
+
+// -------- XML --------
+document.getElementById("xmlFile").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  const info = document.getElementById("xmlFileInfo");
+  if (!f) {
+    info.textContent = "";
+    return;
+  }
+  info.textContent = `${f.name} (${f.size} байт)`;
+  const txt = await f.text();
+  document.getElementById("xmlInput").value = txt;
+});
+
+async function xmlAction(action) {
+  const input = document.getElementById("xmlInput").value;
+  const ops = {
+    unescapeFromJson: document.getElementById("xmlUnescape").checked,
+    keepXmlDeclaration: document.getElementById("xmlKeepDecl").checked,
+    escapeForJson: document.getElementById("xmlEscape").checked,
+  };
+  const res = await postJson(`/api/format/${action}`, {
+    type: "xml",
+    input,
+    options: ops,
+  });
+  const out = res.output ?? "";
+  document.getElementById("xmlOutput").textContent = out;
+  document.getElementById("xmlStats").textContent = res.stats
+    ? `Вход: ${res.stats.inputBytes} B, Выход: ${res.stats.outputBytes} B, ${res.stats.durationMs} мс`
+    : "";
+  document.getElementById("xmlErrors").textContent =
+    res.errors && res.errors.length ? res.errors.join("\n") : "";
+  const integ = res.integrity;
+  document.getElementById("xmlIntegrity").textContent = integ
+    ? `Целостность: strict=${integ.equalStrict}, normalized=${
+        integ.equalNormalized
+      }, in=${integ.inputHash?.slice(0, 8)}…, out=${integ.outputHash?.slice(
+        0,
+        8
+      )}…`
+    : "";
+  document.getElementById("btnCopyXml").disabled = !out;
+  document.getElementById("btnDownloadXml").disabled = !out;
+  document.getElementById("btnCopyXml").onclick = () =>
+    navigator.clipboard.writeText(out);
+  document.getElementById("btnDownloadXml").onclick = () =>
+    downloadText(out, ops.escapeForJson ? "result.txt" : "result.xml");
+}
+document
+  .getElementById("btnXmlPretty")
+  .addEventListener("click", () => xmlAction("pretty"));
+document
+  .getElementById("btnXmlMinify")
+  .addEventListener("click", () => xmlAction("minify"));
+document
+  .getElementById("btnXmlValidate")
+  .addEventListener("click", () => xmlAction("validate"));
+
+// -------- Utils --------
 function downloadText(text, filename) {
   const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);

@@ -1,8 +1,6 @@
 package com.example.formatter.service;
 
-import com.example.formatter.model.FormatRequest;
-import com.example.formatter.model.FormatResponse;
-import com.example.formatter.model.Stats;
+import com.example.formatter.model.*;
 import com.example.formatter.util.JsonUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -19,13 +17,21 @@ public class JsonService {
     long t0 = System.currentTimeMillis();
     List<String> warnings = new ArrayList<>();
     List<String> errors = new ArrayList<>();
+    Integrity integrity = null;
 
     String input = req.input() == null ? "" : req.input();
     int inBytes = input.getBytes(StandardCharsets.UTF_8).length;
     String output = null;
     try {
-      JsonNode node = JsonUtils.parse(input);
-      output = JsonUtils.formatTabbed(node);
+      JsonNode inNode = JsonUtils.parse(input);
+      output = JsonUtils.formatTabbed(inNode);
+      JsonNode outNode = JsonUtils.parse(output);
+      integrity = new Integrity(
+        true, // strict: парсили и сериализовали без потерь структуры
+        true,
+        JsonUtils.canonicalHash(inNode),
+        JsonUtils.canonicalHash(outNode)
+      );
     } catch (JsonProcessingException e) {
       errors.add("JSON parse error: " + e.getMessage());
     } catch (Exception e) {
@@ -33,20 +39,27 @@ public class JsonService {
     }
     int outBytes = output == null ? 0 : output.getBytes(StandardCharsets.UTF_8).length;
     long dur = System.currentTimeMillis() - t0;
-    return new FormatResponse(output, new Stats(inBytes, outBytes, dur), warnings, errors);
+    return new FormatResponse(output, new Stats(inBytes, outBytes, dur), warnings, errors, integrity);
   }
 
   public FormatResponse minify(FormatRequest req) {
     long t0 = System.currentTimeMillis();
     List<String> warnings = new ArrayList<>();
     List<String> errors = new ArrayList<>();
+    Integrity integrity = null;
 
     String input = req.input() == null ? "" : req.input();
     int inBytes = input.getBytes(StandardCharsets.UTF_8).length;
     String output = null;
     try {
-      JsonNode node = JsonUtils.parse(input);
-      output = JsonUtils.mapper().writeValueAsString(node);
+      JsonNode inNode = JsonUtils.parse(input);
+      output = JsonUtils.mapper().writeValueAsString(inNode);
+      JsonNode outNode = JsonUtils.parse(output);
+      integrity = new Integrity(
+        true, true,
+        JsonUtils.canonicalHash(inNode),
+        JsonUtils.canonicalHash(outNode)
+      );
     } catch (JsonProcessingException e) {
       errors.add("JSON parse error: " + e.getMessage());
     } catch (Exception e) {
@@ -54,7 +67,7 @@ public class JsonService {
     }
     int outBytes = output == null ? 0 : output.getBytes(StandardCharsets.UTF_8).length;
     long dur = System.currentTimeMillis() - t0;
-    return new FormatResponse(output, new Stats(inBytes, outBytes, dur), warnings, errors);
+    return new FormatResponse(output, new Stats(inBytes, outBytes, dur), warnings, errors, integrity);
   }
 
   public FormatResponse validate(FormatRequest req) {
@@ -72,6 +85,6 @@ public class JsonService {
       errors.add("Unexpected: " + e.getMessage());
     }
     long dur = System.currentTimeMillis() - t0;
-    return new FormatResponse(null, new Stats(inBytes, 0, dur), warnings, errors);
+    return new FormatResponse(null, new Stats(inBytes, 0, dur), warnings, errors, null);
   }
 }

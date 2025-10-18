@@ -8,97 +8,259 @@
   </head>
   <body>
     <header>
-      <h1>Data & Log Formatter (MVP)</h1>
+      <div class="header-inner">
+        <div class="brand">Data & Log Formatter</div>
+        <nav>
+          <a href="#home">Главная</a>
+          <a href="#logs">Логи</a>
+          <a href="#json">JSON</a>
+          <a href="#xml">XML</a>
+        </nav>
+        <div class="limits">Макс. 10 МБ · Тайм-аут 15 c</div>
+      </div>
     </header>
 
     <main>
-      <section class="cards">
-        <div class="card">
-          <h2>JSON</h2>
-          <textarea id="jsonInput" placeholder="Вставьте JSON..."></textarea>
-          <div class="buttons">
-            <button id="btnPretty">Pretty</button>
-            <button id="btnMinify">Minify</button>
-            <button id="btnValidate">Validate</button>
+      <!-- HOME -->
+      <section id="home" class="route">
+        <h1>Выберите область</h1>
+        <div class="cards3">
+          <div class="card clickable" onclick="navigate('#logs')">
+            <h2>Логи</h2>
+            <p>
+              Извлечение JSON, форматирование и дедупликация. Отчёт как в CLI.
+              Экспорт остаётся.
+            </p>
           </div>
-          <pre id="jsonOutput" class="output"></pre>
+          <div class="card clickable" onclick="navigate('#json')">
+            <h2>JSON</h2>
+            <p>Pretty / Minify / Validate. Проверка целостности.</p>
+          </div>
+          <div class="card clickable" onclick="navigate('#xml')">
+            <h2>XML</h2>
+            <p>
+              Pretty / Minify / Validate. Escape/Unescape для JSON-строки.
+              Проверка целостности.
+            </p>
+          </div>
         </div>
+      </section>
 
-        <div class="card">
-          <h2>Логи</h2>
-          <textarea
-            id="logsInput"
-            placeholder="Вставьте логи NDJSON..."
-          ></textarea>
-          <div class="options">
-            <label
-              ><input
-                type="checkbox"
-                class="pat"
-                value="internalRequest"
-                checked
-              />
-              internalRequest</label
-            >
-            <label
-              ><input
-                type="checkbox"
-                class="pat"
-                value="externalRequest"
-                checked
-              />
-              externalRequest</label
-            >
-            <label
-              ><input
-                type="checkbox"
-                class="pat"
-                value="internalResponse"
-                checked
-              />
-              internalResponse</label
-            >
-            <label
-              ><input
-                type="checkbox"
-                class="pat"
-                value="externalResponse"
-                checked
-              />
-              externalResponse</label
-            >
-            <label
-              ><input type="checkbox" class="pat" value="request" checked />
-              request</label
-            >
-            <label
-              ><input type="checkbox" class="pat" value="response" checked />
-              response</label
-            >
-            <label
-              ><input type="checkbox" class="pat" value="afterColon" checked />
-              afterColon</label
-            >
-            <label
-              ><input type="checkbox" id="replaceEsc" checked /> заменить \n на
-              переводы строк</label
-            >
-            <label
-              >minAfterColonLength:
+      <!-- LOGS -->
+      <section id="logs" class="route hidden">
+        <h1>Логи</h1>
+        <div class="two-cols">
+          <div class="left">
+            <div class="block">
+              <label class="label">Файл (до 10 МБ):</label>
               <input
-                type="number"
-                id="minLen"
-                value="50"
-                min="0"
-                style="width: 80px"
-            /></label>
+                type="file"
+                id="logsFile"
+                accept=".txt,.log,.json,.ndjson"
+              />
+              <div id="logsFileInfo" class="hint"></div>
+            </div>
+            <div class="block">
+              <label class="label">Или вставьте текст вручную:</label>
+              <textarea
+                id="logsInput"
+                placeholder="Вставьте логи NDJSON..."
+              ></textarea>
+            </div>
+            <div class="block options">
+              <div class="opt-group">
+                <div class="opt-title">Паттерны:</div>
+                <label
+                  ><input
+                    type="checkbox"
+                    class="pat"
+                    value="internalRequest"
+                    checked
+                  />
+                  internalRequest</label
+                >
+                <label
+                  ><input
+                    type="checkbox"
+                    class="pat"
+                    value="externalRequest"
+                    checked
+                  />
+                  externalRequest</label
+                >
+                <label
+                  ><input
+                    type="checkbox"
+                    class="pat"
+                    value="internalResponse"
+                    checked
+                  />
+                  internalResponse</label
+                >
+                <label
+                  ><input
+                    type="checkbox"
+                    class="pat"
+                    value="externalResponse"
+                    checked
+                  />
+                  externalResponse</label
+                >
+                <label
+                  ><input type="checkbox" class="pat" value="request" checked />
+                  request</label
+                >
+                <label
+                  ><input
+                    type="checkbox"
+                    class="pat"
+                    value="response"
+                    checked
+                  />
+                  response</label
+                >
+                <label
+                  ><input
+                    type="checkbox"
+                    class="pat"
+                    value="afterColon"
+                    checked
+                  />
+                  afterColon</label
+                >
+              </div>
+              <div class="opt-group">
+                <label
+                  ><input type="checkbox" id="replaceEsc" checked /> заменять \n
+                  на переводы строк</label
+                >
+                <label
+                  >minAfterColonLength:
+                  <input
+                    type="number"
+                    id="minLen"
+                    value="50"
+                    min="0"
+                    style="width: 90px"
+                /></label>
+              </div>
+              <div class="opt-group">
+                <label
+                  ><input type="checkbox" id="showOnlyUnique" checked />
+                  показывать только уникальные</label
+                >
+                <label
+                  ><input type="checkbox" id="showDuplicates" /> показывать
+                  дубликаты</label
+                >
+              </div>
+            </div>
+            <div class="buttons">
+              <button id="btnNormalize">Извлечь</button>
+              <button id="btnLogsReset" class="secondary">Сброс</button>
+            </div>
           </div>
-          <div class="buttons">
-            <button id="btnNormalize">Извлечь</button>
-            <button id="btnDownload" disabled>Скачать output.json</button>
+          <div class="right">
+            <div id="logsStats" class="stats"></div>
+            <div class="buttons mb8">
+              <button id="btnDownload" disabled>
+                Скачать общий отчёт (output.json)
+              </button>
+              <button id="btnCopyExport" disabled>
+                Копировать общий отчёт
+              </button>
+            </div>
+            <div id="logsItems"></div>
+            <div id="logsMessages"></div>
           </div>
-          <div id="stats" class="stats"></div>
-          <div id="items"></div>
+        </div>
+      </section>
+
+      <!-- JSON -->
+      <section id="json" class="route hidden">
+        <h1>JSON</h1>
+        <div class="two-cols">
+          <div class="left">
+            <div class="block">
+              <label class="label">Файл (до 10 МБ):</label>
+              <input type="file" id="jsonFile" accept=".json,.txt" />
+              <div id="jsonFileInfo" class="hint"></div>
+            </div>
+            <div class="block">
+              <label class="label">Или вставьте текст вручную:</label>
+              <textarea
+                id="jsonInput"
+                placeholder="Вставьте JSON..."
+              ></textarea>
+            </div>
+            <div class="buttons">
+              <button id="btnPretty">Pretty</button>
+              <button id="btnMinify">Minify</button>
+              <button id="btnValidate" class="secondary">Validate</button>
+            </div>
+          </div>
+          <div class="right">
+            <div id="jsonOutput" class="output"></div>
+            <div id="jsonStats" class="stats"></div>
+            <div id="jsonIntegrity" class="hint"></div>
+            <div id="jsonErrors" class="errors"></div>
+            <div class="buttons">
+              <button id="btnCopyJson" disabled>Копировать результат</button>
+              <button id="btnDownloadJson" disabled>Скачать result.json</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- XML -->
+      <section id="xml" class="route hidden">
+        <h1>XML</h1>
+        <div class="two-cols">
+          <div class="left">
+            <div class="block">
+              <label class="label">Файл (до 10 МБ):</label>
+              <input type="file" id="xmlFile" accept=".xml,.txt" />
+              <div id="xmlFileInfo" class="hint"></div>
+            </div>
+            <div class="block">
+              <label class="label">Или вставьте текст вручную:</label>
+              <textarea
+                id="xmlInput"
+                placeholder="Вставьте XML или XML в виде JSON-строки..."
+              ></textarea>
+            </div>
+            <div class="block options">
+              <div class="opt-group">
+                <label
+                  ><input type="checkbox" id="xmlUnescape" /> Unescape из
+                  JSON-строки</label
+                >
+                <label
+                  ><input type="checkbox" id="xmlKeepDecl" checked /> Сохранить
+                  XML декларацию</label
+                >
+                <label>
+                  <input type="checkbox" id="xmlEscape" checked />
+                  Escape для JSON-строки</label
+                >
+              </div>
+            </div>
+            <div class="buttons">
+              <button id="btnXmlPretty">Pretty</button>
+              <button id="btnXmlMinify">Minify</button>
+              <button id="btnXmlValidate" class="secondary">Validate</button>
+            </div>
+          </div>
+          <div class="right">
+            <div id="xmlOutput" class="output"></div>
+            <div id="xmlStats" class="stats"></div>
+            <div id="xmlIntegrity" class="hint"></div>
+            <div id="xmlErrors" class="errors"></div>
+            <div class="buttons">
+              <button id="btnCopyXml" disabled>Копировать результат</button>
+              <button id="btnDownloadXml" disabled>Скачать result.xml</button>
+            </div>
+          </div>
         </div>
       </section>
     </main>

@@ -6,5 +6,6 @@ public record FormatResponse(
   String output,
   Stats stats,
   List<String> warnings,
-  List<String> errors
+  List<String> errors,
+  Integrity integrity // может быть null (например, validate)
 ) {}
