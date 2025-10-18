@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Data & Log Formatter</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Data & Log Formatter (MVP)</h1>
+    </header>
+
+    <main>
+      <section class="cards">
+        <div class="card">
+          <h2>JSON</h2>
+          <textarea id="jsonInput" placeholder="Вставьте JSON..."></textarea>
+          <div class="buttons">
+            <button id="btnPretty">Pretty</button>
+            <button id="btnMinify">Minify</button>
+            <button id="btnValidate">Validate</button>
+          </div>
+          <pre id="jsonOutput" class="output"></pre>
+        </div>
+
+        <div class="card">
+          <h2>Логи</h2>
+          <textarea
+            id="logsInput"
+            placeholder="Вставьте логи NDJSON..."
+          ></textarea>
+          <div class="options">
+            <label
+              ><input
+                type="checkbox"
+                class="pat"
+                value="internalRequest"
+                checked
+              />
+              internalRequest</label
+            >
+            <label
+              ><input
+                type="checkbox"
+                class="pat"
+                value="externalRequest"
+                checked
+              />
+              externalRequest</label
+            >
+            <label
+              ><input
+                type="checkbox"
+                class="pat"
+                value="internalResponse"
+                checked
+              />
+              internalResponse</label
+            >
+            <label
+              ><input
+                type="checkbox"
+                class="pat"
+                value="externalResponse"
+                checked
+              />
+              externalResponse</label
+            >
+            <label
+              ><input type="checkbox" class="pat" value="request" checked />
+              request</label
+            >
+            <label
+              ><input type="checkbox" class="pat" value="response" checked />
+              response</label
+            >
+            <label
+              ><input type="checkbox" class="pat" value="afterColon" checked />
+              afterColon</label
+            >
+            <label
+              ><input type="checkbox" id="replaceEsc" checked /> заменить \n на
+              переводы строк</label
+            >
+            <label
+              >minAfterColonLength:
+              <input
+                type="number"
+                id="minLen"
+                value="50"
+                min="0"
+                style="width: 80px"
+            /></label>
+          </div>
+          <div class="buttons">
+            <button id="btnNormalize">Извлечь</button>
+            <button id="btnDownload" disabled>Скачать output.json</button>
+          </div>
+          <div id="stats" class="stats"></div>
+          <div id="items"></div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
