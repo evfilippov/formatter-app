@@ -26,18 +26,18 @@
         <h1>Выберите область</h1>
         <div class="cards3">
           <div class="card clickable" onclick="navigate('#logs')">
-            <h2>Логи</h2>
+            <h2>📋 Логи</h2>
             <p>
-              Извлечение JSON, форматирование и дедупликация. Отчёт как в CLI.
-              Экспорт остаётся.
+              Извлечение JSON, форматирование и дедупликация. Поиск, фильтрация,
+              экспорт и сравнение логов.
             </p>
           </div>
           <div class="card clickable" onclick="navigate('#json')">
-            <h2>JSON</h2>
+            <h2>🔧 JSON</h2>
             <p>Pretty / Minify / Validate. Проверка целостности.</p>
           </div>
           <div class="card clickable" onclick="navigate('#xml')">
-            <h2>XML</h2>
+            <h2>📄 XML</h2>
             <p>
               Pretty / Minify / Validate. Escape/Unescape для JSON-строки.
               Проверка целостности.
@@ -48,11 +48,92 @@
 
       <!-- LOGS -->
       <section id="logs" class="route hidden">
-        <h1>Логи</h1>
-        <div class="two-cols">
-          <div class="left">
+        <h1>📋 Анализ логов</h1>
+
+        <div class="logs-layout">
+          <!-- ПАНЕЛЬ РЕЗУЛЬТАТОВ -->
+          <div class="logs-results">
+            <!-- Toolbar -->
+            <div class="logs-toolbar">
+              <div class="search-container">
+                <input
+                  type="text"
+                  id="logsSearch"
+                  placeholder="🔍 Поиск по сообщениям..."
+                />
+                <span id="searchCounter" class="search-counter"></span>
+              </div>
+
+              <div class="toolbar-actions">
+                <select id="logsFilter" class="filter-select">
+                  <option value="all">Все типы</option>
+                  <option value="request">Request</option>
+                  <option value="response">Response</option>
+                  <option value="internal">Internal</option>
+                  <option value="external">External</option>
+                  <option value="info">INFO</option>
+                  <option value="debug">DEBUG</option>
+                  <option value="error">ERROR</option>
+                </select>
+
+                <select id="logsSort" class="filter-select">
+                  <option value="number">По номеру</option>
+                  <option value="type">По типу</option>
+                  <option value="size">По размеру</option>
+                  <option value="timestamp">По времени</option>
+                </select>
+
+                <div class="btn-group">
+                  <button
+                    id="btnCollapseAll"
+                    class="btn-icon"
+                    title="Свернуть все"
+                  >
+                    <span class="icon">▼</span>
+                  </button>
+                  <button
+                    id="btnExpandAll"
+                    class="btn-icon"
+                    title="Развернуть все"
+                  >
+                    <span class="icon">▲</span>
+                  </button>
+                </div>
+
+                <label class="checkbox-label">
+                  <input type="checkbox" id="highlightSearch" checked />
+                  Подсветка
+                </label>
+              </div>
+            </div>
+
+            <!-- Статистика -->
+            <div id="logsStats" class="stats"></div>
+
+            <!-- Мини-график -->
+            <div id="logsChart" class="mini-chart"></div>
+
+            <!-- Кнопки экспорта -->
+            <div class="buttons mb8">
+              <button id="btnDownload" disabled>📥 Скачать общий отчёт</button>
+              <button id="btnCopyExport" disabled>📋 Копировать отчёт</button>
+              <button id="btnExportSelected" disabled>
+                ✅ Экспорт выбранных
+              </button>
+              <button id="btnCompare" disabled>🔍 Сравнить (2)</button>
+            </div>
+
+            <!-- История поиска -->
+            <div id="searchHistory" class="search-history"></div>
+
+            <!-- Результаты -->
+            <div id="logsItems" class="logs-items"></div>
+          </div>
+
+          <!-- ПАНЕЛЬ ВВОДА -->
+          <div class="logs-input">
             <div class="block">
-              <label class="label">Файл (до 10 МБ):</label>
+              <label class="label">📁 Файл логов (до 10 МБ):</label>
               <input
                 type="file"
                 id="logsFile"
@@ -60,16 +141,18 @@
               />
               <div id="logsFileInfo" class="hint"></div>
             </div>
+
             <div class="block">
-              <label class="label">Или вставьте текст вручную:</label>
+              <label class="label">📝 Или вставьте текст вручную:</label>
               <textarea
                 id="logsInput"
-                placeholder="Вставьте логи NDJSON..."
+                placeholder="Вставьте логи в формате NDJSON (каждая строка - отдельный JSON объект)..."
               ></textarea>
             </div>
+
             <div class="block options">
               <div class="opt-group">
-                <div class="opt-title">Паттерны:</div>
+                <div class="opt-title">Паттерны извлечения:</div>
                 <label
                   ><input
                     type="checkbox"
@@ -129,56 +212,62 @@
                   afterColon</label
                 >
               </div>
+
               <div class="opt-group">
                 <label
-                  ><input type="checkbox" id="replaceEsc" checked /> заменять \n
+                  ><input type="checkbox" id="replaceEsc" checked /> Заменять \n
                   на переводы строк</label
                 >
                 <label
-                  >minAfterColonLength:
+                  >Min длина после двоеточия:
                   <input
                     type="number"
                     id="minLen"
                     value="50"
                     min="0"
                     style="width: 90px"
-                /></label>
+                  />
+                </label>
               </div>
+
               <div class="opt-group">
                 <label
-                  ><input type="checkbox" id="showOnlyUnique" checked />
-                  показывать только уникальные</label
+                  ><input type="checkbox" id="showOnlyUnique" checked /> Только
+                  уникальные</label
                 >
                 <label
-                  ><input type="checkbox" id="showDuplicates" /> показывать
+                  ><input type="checkbox" id="showDuplicates" /> Показывать
                   дубликаты</label
+                >
+                <label
+                  ><input type="checkbox" id="autoSave" /> Автосохранение</label
+                >
+                <label
+                  ><input type="checkbox" id="regexMode" /> Regex поиск</label
                 >
               </div>
             </div>
+
             <div class="buttons">
-              <button id="btnNormalize">Извлечь</button>
-              <button id="btnLogsReset" class="secondary">Сброс</button>
-            </div>
-          </div>
-          <div class="right">
-            <div id="logsStats" class="stats"></div>
-            <div class="buttons mb8">
-              <button id="btnDownload" disabled>
-                Скачать общий отчёт (output.json)
+              <button id="btnNormalize" class="btn-primary">
+                ⚡ Извлечь и проанализировать
               </button>
-              <button id="btnCopyExport" disabled>
-                Копировать общий отчёт
+              <button id="btnLogsReset" class="secondary">
+                🗑️ Очистить всё
               </button>
             </div>
-            <div id="logsItems"></div>
-            <div id="logsMessages"></div>
+
+            <div class="hint" style="margin-top: 12px">
+              💡 Подсказка: используйте Ctrl+F для быстрого поиска, Ctrl+G для
+              перехода к сообщению
+            </div>
           </div>
         </div>
       </section>
 
       <!-- JSON -->
       <section id="json" class="route hidden">
-        <h1>JSON</h1>
+        <h1>🔧 JSON Formatter</h1>
         <div class="two-cols">
           <div class="left">
             <div class="block">
@@ -214,7 +303,7 @@
 
       <!-- XML -->
       <section id="xml" class="route hidden">
-        <h1>XML</h1>
+        <h1>📄 XML Formatter</h1>
         <div class="two-cols">
           <div class="left">
             <div class="block">
@@ -239,9 +328,9 @@
                   ><input type="checkbox" id="xmlKeepDecl" checked /> Сохранить
                   XML декларацию</label
                 >
-                <label>
-                  <input type="checkbox" id="xmlEscape" checked />
-                  Escape для JSON-строки</label
+                <label
+                  ><input type="checkbox" id="xmlEscape" checked /> Escape для
+                  JSON-строки</label
                 >
               </div>
             </div>
@@ -264,6 +353,28 @@
         </div>
       </section>
     </main>
+
+    <!-- Модальное окно сравнения -->
+    <div id="compareModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>🔍 Сравнение сообщений</h2>
+          <button class="modal-close" onclick="closeCompareModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="compare-panels">
+            <div class="compare-left">
+              <h3 id="compareTitle1"></h3>
+              <pre id="compareContent1"></pre>
+            </div>
+            <div class="compare-right">
+              <h3 id="compareTitle2"></h3>
+              <pre id="compareContent2"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <script src="/app.js"></script>
   </body>
