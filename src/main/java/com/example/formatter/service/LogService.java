@@ -6,6 +6,7 @@ import com.example.formatter.model.NormalizeRequest;
 import com.example.formatter.model.NormalizeResponse;
 import com.example.formatter.model.NormalizeStats;
 import com.example.formatter.util.JsonUtils;
+import com.example.formatter.util.UniversalJsonExtractor;  // ← НОВЫЙ ИМПОРТ
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -31,13 +32,15 @@ public class LogService {
   // Паттерны ключевых слов (в порядке приоритета)
   private record KeyPattern(String name, Pattern pattern) {}
   private static final List<KeyPattern> ALL_KEY_PATTERNS = List.of(
-      new KeyPattern("internalRequest", Pattern.compile("internalRequest\\s*=\\s*\\{", Pattern.CASE_INSENSITIVE)),
-      new KeyPattern("externalRequest", Pattern.compile("externalRequest\\s*=\\s*\\{", Pattern.CASE_INSENSITIVE)),
-      new KeyPattern("internalResponse", Pattern.compile("internalResponse\\s*=\\s*\\{", Pattern.CASE_INSENSITIVE)),
-      new KeyPattern("externalResponse", Pattern.compile("externalResponse\\s*=\\s*\\{", Pattern.CASE_INSENSITIVE)),
-      new KeyPattern("request", Pattern.compile("\\brequest\\s*[:=]\\s*\\{", Pattern.CASE_INSENSITIVE)),
-      new KeyPattern("response", Pattern.compile("\\bresponse\\s*[:=]\\s*\\{", Pattern.CASE_INSENSITIVE))
-  );
+    new KeyPattern("internalRequest", Pattern.compile("internalRequest\\s*=\\s*\\{", Pattern.CASE_INSENSITIVE)),
+    new KeyPattern("externalRequest", Pattern.compile("externalRequest\\s*=\\s*\\{", Pattern.CASE_INSENSITIVE)),
+    new KeyPattern("internalResponse", Pattern.compile("internalResponse\\s*=\\s*\\{", Pattern.CASE_INSENSITIVE)),
+    new KeyPattern("externalResponse", Pattern.compile("externalResponse\\s*=\\s*\\{", Pattern.CASE_INSENSITIVE)),
+    new KeyPattern("request", Pattern.compile("\\brequest\\s*[:=]\\s*\\{", Pattern.CASE_INSENSITIVE)),
+    new KeyPattern("response", Pattern.compile("\\bresponse\\s*[:=]\\s*\\{", Pattern.CASE_INSENSITIVE)),
+    new KeyPattern("args", Pattern.compile("args\\s*=\\s*\\[\\s*\\{", Pattern.CASE_INSENSITIVE))  // ← НОВЫЙ ПАТТЕРН
+);
+
 
   private static final Pattern AFTER_COLON = Pattern.compile(":\\s*(\\{)");
 
@@ -302,6 +305,28 @@ public class LogService {
               }
             }
           } catch (Exception ignore) { }
+        }
+      }
+    }
+        // Приоритет 3: НОВЫЙ универсальный поиск (если паттерны не сработали)
+    if (messages.isEmpty()) {
+      // Пробуем извлечь из args=
+      if (enabled.contains("args")) {
+        String argsJson = UniversalJsonExtractor.extractFromArgs(contentClean);
+        if (argsJson != null) {
+          messages.put("args", argsJson);
+          return messages;
+        }
+      }
+      
+      // Fallback: ищем JSON в любом месте (если включен afterColon)
+      if (enabled.contains("afterColon")) {
+        List<String> foundJsons = UniversalJsonExtractor.findAllJsonInText(contentClean);
+        for (int i = 0; i < foundJsons.size(); i++) {
+          String json = foundJsons.get(i);
+          if (json.length() > minAfterColonLength) {
+            messages.put("found_json_" + (i + 1), json);
+          }
         }
       }
     }
