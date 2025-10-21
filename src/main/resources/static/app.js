@@ -813,6 +813,164 @@ document
   ?.addEventListener("click", () => jsonAction("validate"));
 
 // ============================================
+// JSON РАЗДЕЛ - РАСШИРЕНИЕ ДЛЯ WRAP/UNWRAP
+// ============================================
+
+// Переключение режимов форматирования
+document.querySelectorAll('input[name="jsonMode"]').forEach((radio) => {
+  radio.addEventListener("change", (e) => {
+    const mode = e.target.value;
+    const formatButtons = document.getElementById("formatButtons");
+    const wrapperButtons = document.getElementById("wrapperButtons");
+    const hint = document.getElementById("jsonModeHint");
+
+    if (mode === "format") {
+      formatButtons?.classList.remove("hidden");
+      wrapperButtons?.classList.add("hidden");
+      if (hint)
+        hint.textContent =
+          "Pretty форматирует с отступами, Minify убирает пробелы";
+    } else {
+      formatButtons?.classList.add("hidden");
+      wrapperButtons?.classList.remove("hidden");
+      if (hint)
+        hint.textContent =
+          'Wrap оборачивает значения в {"value": ...}, Unwrap разворачивает обратно';
+    }
+
+    // Очищаем вывод при смене режима
+    document.getElementById("jsonOutput").textContent = "";
+    document.getElementById("jsonStats").textContent = "";
+    document.getElementById("jsonErrors").textContent = "";
+    document.getElementById("jsonIntegrity").textContent = "";
+  });
+});
+
+// Обработчик для кнопки Wrap Values
+document.getElementById("btnWrap")?.addEventListener("click", async () => {
+  const input = document.getElementById("jsonInput").value;
+
+  if (!input.trim()) {
+    alert("Введите JSON для обработки");
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/format/wrap", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: "json",
+        input: input,
+      }),
+    });
+
+    const res = await response.json();
+
+    const out = res.output ?? "";
+    document.getElementById("jsonOutput").textContent = out;
+    document.getElementById("jsonStats").textContent = res.stats
+      ? `Вход: ${res.stats.inputBytes} B, Выход: ${res.stats.outputBytes} B, ${res.stats.durationMs} мс | ✅ Значения обернуты в {"value": ...}`
+      : "";
+    document.getElementById("jsonErrors").textContent =
+      res.errors && res.errors.length ? res.errors.join("\n") : "";
+
+    const integ = res.integrity;
+    document.getElementById("jsonIntegrity").textContent = integ
+      ? `Данные сохранены, структура изменена`
+      : "";
+
+    document.getElementById("btnCopyJson").disabled = !out;
+    document.getElementById("btnDownloadJson").disabled = !out;
+
+    if (out) {
+      // Обновляем обработчики копирования и скачивания
+      document.getElementById("btnCopyJson").onclick = () => {
+        navigator.clipboard.writeText(out);
+        alert("JSON скопирован в буфер обмена");
+      };
+      document.getElementById("btnDownloadJson").onclick = () => {
+        const blob = new Blob([out], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "wrapped.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+    }
+  } catch (error) {
+    console.error("Error wrapping JSON:", error);
+    document.getElementById("jsonErrors").textContent =
+      "Ошибка обработки: " + error.message;
+  }
+});
+
+// Обработчик для кнопки Unwrap Values
+document.getElementById("btnUnwrap")?.addEventListener("click", async () => {
+  const input = document.getElementById("jsonInput").value;
+
+  if (!input.trim()) {
+    alert("Введите JSON для обработки");
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/format/unwrap", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: "json",
+        input: input,
+      }),
+    });
+
+    const res = await response.json();
+
+    const out = res.output ?? "";
+    document.getElementById("jsonOutput").textContent = out;
+    document.getElementById("jsonStats").textContent = res.stats
+      ? `Вход: ${res.stats.inputBytes} B, Выход: ${res.stats.outputBytes} B, ${res.stats.durationMs} мс | ✅ Значения развернуты`
+      : "";
+    document.getElementById("jsonErrors").textContent =
+      res.errors && res.errors.length ? res.errors.join("\n") : "";
+
+    const integ = res.integrity;
+    document.getElementById("jsonIntegrity").textContent = integ
+      ? `Данные сохранены, структура изменена`
+      : "";
+
+    document.getElementById("btnCopyJson").disabled = !out;
+    document.getElementById("btnDownloadJson").disabled = !out;
+
+    if (out) {
+      // Обновляем обработчики копирования и скачивания
+      document.getElementById("btnCopyJson").onclick = () => {
+        navigator.clipboard.writeText(out);
+        alert("JSON скопирован в буфер обмена");
+      };
+      document.getElementById("btnDownloadJson").onclick = () => {
+        const blob = new Blob([out], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "unwrapped.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+    }
+  } catch (error) {
+    console.error("Error unwrapping JSON:", error);
+    document.getElementById("jsonErrors").textContent =
+      "Ошибка обработки: " + error.message;
+  }
+});
+
+// ============================================
 // XML РАЗДЕЛ
 // ============================================
 document.getElementById("xmlFile").addEventListener("change", async (e) => {

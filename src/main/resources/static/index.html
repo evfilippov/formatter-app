@@ -286,10 +286,43 @@
                 placeholder="Вставьте JSON..."
               ></textarea>
             </div>
-            <div class="buttons">
+
+            <!-- НОВАЯ СЕКЦИЯ ОПЦИЙ -->
+            <div class="block options" style="margin-bottom: 12px">
+              <div class="opt-group">
+                <div class="opt-title">🎯 Режим обработки:</div>
+                <label style="margin-right: 10px">
+                  <input type="radio" name="jsonMode" value="format" checked />
+                  Форматирование
+                </label>
+                <label>
+                  <input type="radio" name="jsonMode" value="wrapper" />
+                  Value Wrapper
+                </label>
+              </div>
+            </div>
+
+            <!-- Кнопки для форматирования -->
+            <div class="buttons" id="formatButtons">
               <button id="btnPretty">Pretty</button>
               <button id="btnMinify">Minify</button>
               <button id="btnValidate" class="secondary">Validate</button>
+            </div>
+
+            <!-- Кнопки для wrapper (скрыты по умолчанию) -->
+            <div class="buttons hidden" id="wrapperButtons">
+              <button id="btnWrap" class="btn-primary">📦 Wrap Values</button>
+              <button id="btnUnwrap" class="btn-primary">
+                📂 Unwrap Values
+              </button>
+            </div>
+
+            <!-- Подсказка -->
+            <div class="hint" style="margin-top: 12px">
+              💡
+              <span id="jsonModeHint"
+                >Pretty форматирует с отступами, Minify убирает пробелы</span
+              >
             </div>
           </div>
           <div class="right">

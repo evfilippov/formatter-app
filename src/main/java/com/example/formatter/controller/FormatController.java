@@ -73,6 +73,51 @@ public class FormatController {
     return ResponseEntity.ok(dispatch("validate", buildFromFile(type, file, escapeForJson, unescapeFromJson, keepXmlDeclaration)));
   }
 
+@PostMapping(value = "/wrap", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+public ResponseEntity<FormatResponse> wrapValues(@RequestBody FormatRequest req) {
+    if (!"json".equalsIgnoreCase(req.type())) {
+        return ResponseEntity.ok(new FormatResponse(null, null, List.of(), 
+            List.of("Wrap values только для JSON"), null));
+    }
+    return ResponseEntity.ok(jsonService.wrapValues(req));
+}
+
+@PostMapping(value = "/unwrap", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+public ResponseEntity<FormatResponse> unwrapValues(@RequestBody FormatRequest req) {
+    if (!"json".equalsIgnoreCase(req.type())) {
+        return ResponseEntity.ok(new FormatResponse(null, null, List.of(), 
+            List.of("Unwrap values только для JSON"), null));
+    }
+    return ResponseEntity.ok(jsonService.unwrapValues(req));
+}
+
+// Также добавьте multipart версии:
+@PostMapping(value = "/wrap", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+public ResponseEntity<FormatResponse> wrapValuesFile(
+    @RequestParam("type") String type,
+    @RequestParam("file") MultipartFile file
+) throws Exception {
+    if (!"json".equalsIgnoreCase(type)) {
+        return ResponseEntity.ok(new FormatResponse(null, null, List.of(), 
+            List.of("Wrap values только для JSON"), null));
+    }
+    String input = new String(file.getBytes(), StandardCharsets.UTF_8);
+    return ResponseEntity.ok(jsonService.wrapValues(new FormatRequest("json", input, null)));
+}
+
+@PostMapping(value = "/unwrap", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+public ResponseEntity<FormatResponse> unwrapValuesFile(
+    @RequestParam("type") String type,
+    @RequestParam("file") MultipartFile file
+) throws Exception {
+    if (!"json".equalsIgnoreCase(type)) {
+        return ResponseEntity.ok(new FormatResponse(null, null, List.of(), 
+            List.of("Unwrap values только для JSON"), null));
+    }
+    String input = new String(file.getBytes(), StandardCharsets.UTF_8);
+    return ResponseEntity.ok(jsonService.unwrapValues(new FormatRequest("json", input, null)));
+}
+
   private FormatRequest buildFromFile(String type, MultipartFile file, Boolean escape, Boolean unescape, Boolean decl) throws Exception {
     String input = new String(file.getBytes(), StandardCharsets.UTF_8);
     FormatOptions opts = new FormatOptions(escape, unescape, decl);
