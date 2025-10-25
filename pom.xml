@@ -52,6 +52,50 @@
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
+
+    <!-- ========================================= -->
+    <!-- GRAPHQL DEPENDENCIES - НАЧАЛО            -->
+    <!-- ========================================= -->
+    
+    <!-- GraphQL Java Core -->
+    <dependency>
+      <groupId>com.graphql-java</groupId>
+      <artifactId>graphql-java</artifactId>
+      <version>21.3</version>
+    </dependency>
+
+    <!-- GraphQL Extended Scalars (DateTime, Date и др.) -->
+    <dependency>
+      <groupId>com.graphql-java</groupId>
+      <artifactId>graphql-java-extended-scalars</artifactId>
+      <version>21.0</version>
+    </dependency>
+
+    <!-- GraphQL Java Tools для работы со схемами -->
+    <dependency>
+      <groupId>com.graphql-java-kickstart</groupId>
+      <artifactId>graphql-java-tools</artifactId>
+      <version>13.0.3</version>
+      <exclusions>
+        <!-- Исключаем старые версии kotlin, если конфликтуют -->
+        <exclusion>
+          <groupId>org.jetbrains.kotlin</groupId>
+          <artifactId>kotlin-stdlib</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <!-- OkHttp для выполнения HTTP запросов (introspection) -->
+    <dependency>
+      <groupId>com.squareup.okhttp3</groupId>
+      <artifactId>okhttp</artifactId>
+      <version>4.12.0</version>
+    </dependency>
+    
+    <!-- ========================================= -->
+    <!-- GRAPHQL DEPENDENCIES - КОНЕЦ             -->
+    <!-- ========================================= -->
+    
   </dependencies>
 
   <build>

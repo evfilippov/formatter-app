@@ -4,12 +4,7 @@
     <meta charset="UTF-8" />
     <title>Data & Log Formatter</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-    <!-- CSS FILES -->
-    <link rel="stylesheet" href="css/variables.css" />
-    <link rel="stylesheet" href="css/core.css" />
-    <link rel="stylesheet" href="css/components.css" />
-    <link rel="stylesheet" href="css/modules.css" />
+    <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <header>
@@ -31,28 +26,28 @@
       <section id="home" class="route">
         <h1>Выберите область</h1>
         <div class="cards">
-          <div class="card clickable" data-route="logs">
+          <div class="card clickable" onclick="navigate('#logs')">
             <h2>📋 Логи</h2>
             <p>
               Извлечение JSON, форматирование и дедупликация. Поиск, фильтрация,
               экспорт и сравнение логов.
             </p>
           </div>
-          <div class="card clickable" data-route="json">
+          <div class="card clickable" onclick="navigate('#json')">
             <h2>🔧 JSON</h2>
             <p>
               Pretty / Minify / Validate. Wrap/Unwrap values. Проверка
               целостности.
             </p>
           </div>
-          <div class="card clickable" data-route="xml">
+          <div class="card clickable" onclick="navigate('#xml')">
             <h2>📄 XML</h2>
             <p>
               Pretty / Minify / Validate. Escape/Unescape для JSON-строки.
               Проверка целостности.
             </p>
           </div>
-          <div class="card clickable" data-route="graphql">
+          <div class="card clickable" onclick="navigate('#graphql')">
             <h2>🔮 GraphQL</h2>
             <p>
               Форматирование, генерация схем, объединение, валидация и
@@ -61,6 +56,7 @@
           </div>
         </div>
       </section>
+
       <!-- LOGS -->
       <section id="logs" class="route hidden">
         <h1>📋 Анализ логов</h1>
@@ -283,6 +279,7 @@
           </div>
         </div>
       </section>
+
       <!-- JSON -->
       <section id="json" class="route hidden">
         <h1>🔧 JSON Formatter</h1>
@@ -399,19 +396,21 @@
           </div>
         </div>
       </section>
-      <!-- GRAPHQL -->
-      <section id="graphql" class="route hidden">
-        <h1>🔮 GraphQL Formatter & Tools</h1>
 
-        <!-- Табы навигации -->
+      <!-- GRAPHQL SECTION - НАЧАЛО -->
+      <section id="graphql" class="route hidden">
+        <h1>🔮 GraphQL Formatter & Schema Builder</h1>
+
         <div class="graphql-tabs">
           <button class="tab-btn active" data-tab="format">📝 Format</button>
           <button class="tab-btn" data-tab="schema">🔧 Schema Generator</button>
           <button class="tab-btn" data-tab="merge">🔀 Merge</button>
+          <button class="tab-btn" data-tab="validate">✅ Validate</button>
+          <button class="tab-btn" data-tab="introspect">🔍 Introspect</button>
+          <button class="tab-btn" data-tab="builder">🏗️ Query Builder</button>
         </div>
 
-        <!-- FORMAT TAB -->
-        <div id="graphql-format" class="graphql-tab">
+        <div id="format-tab" class="graphql-tab-content active">
           <div class="graphql-split">
             <div class="graphql-input-panel">
               <div class="graphql-toolbar">
@@ -424,13 +423,17 @@
                     style="display: none"
                   />
                 </label>
-                <button id="btnPasteGraphQL" class="btn-tool">📋 Paste</button>
-                <button id="btnClearGraphQL" class="btn-tool">🗑️ Clear</button>
+                <button onclick="pasteGraphQL()" class="btn-tool">
+                  📋 Paste
+                </button>
+                <button onclick="clearGraphQL()" class="btn-tool">
+                  🗑️ Clear
+                </button>
                 <label class="checkbox-inline">
                   <input type="checkbox" id="realTimePreview" checked />
                   Real-time
                 </label>
-                <select id="formatStyle">
+                <select id="formatStyle" onchange="handleGraphQLInput()">
                   <option value="compact">Compact {value}</option>
                   <option value="expanded">Expanded</option>
                 </select>
@@ -442,6 +445,8 @@
                   class="code-editor"
                   placeholder="Enter GraphQL query/mutation..."
                   spellcheck="false"
+                  oninput="handleGraphQLInput()"
+                  onscroll="syncScroll('input')"
                 >
 mutation CreateUser {
   createUser(input: {name: {value: "John"}, age: {value: 30}}) {
@@ -457,51 +462,64 @@ mutation CreateUser {
             <div class="graphql-output-panel">
               <div class="graphql-toolbar">
                 <span class="status-indicator" id="formatStatus">✅ Ready</span>
-                <button id="btnCopyGraphQL" class="btn-tool">📋 Copy</button>
-                <button id="btnDownloadGraphQL" class="btn-tool">
+                <button onclick="copyGraphQL()" class="btn-tool">
+                  📋 Copy
+                </button>
+                <button onclick="downloadGraphQL()" class="btn-tool">
                   💾 Save
                 </button>
-                <button id="btnShareGraphQL" class="btn-tool">🔗 Share</button>
+                <button onclick="shareGraphQL()" class="btn-tool">
+                  🔗 Share
+                </button>
               </div>
-              <pre id="graphqlOutput" class="code-output"></pre>
+              <pre
+                id="graphqlOutput"
+                class="code-output"
+                onscroll="syncScroll('output')"
+              ></pre>
             </div>
           </div>
         </div>
 
-        <!-- SCHEMA TAB -->
-        <div id="graphql-schema" class="graphql-tab hidden">
+        <div id="schema-tab" class="graphql-tab-content">
           <div class="graphql-split">
             <div class="graphql-input-panel">
               <div class="graphql-toolbar">
                 <h3>Query/Mutation → Schema</h3>
-                <button id="btnLoadExample" class="btn-tool">📝 Example</button>
+                <button onclick="loadExampleQuery()" class="btn-tool">
+                  📝 Example
+                </button>
               </div>
               <textarea
                 id="queryForSchema"
                 class="code-editor"
                 placeholder="Paste GraphQL query to generate schema..."
+                oninput="handleSchemaGenInput()"
               ></textarea>
             </div>
 
             <div class="graphql-output-panel">
               <div class="graphql-toolbar">
                 <h3>Generated Schema</h3>
-                <button id="btnCopySchema" class="btn-tool">📋 Copy</button>
-                <button id="btnDownloadSchema" class="btn-tool">💾 Save</button>
+                <button onclick="copySchema()" class="btn-tool">📋 Copy</button>
+                <button onclick="downloadSchema()" class="btn-tool">
+                  💾 Save
+                </button>
               </div>
               <pre id="schemaOutput" class="code-output"></pre>
             </div>
           </div>
         </div>
 
-        <!-- MERGE TAB -->
-        <div id="graphql-merge" class="graphql-tab hidden">
+        <div id="merge-tab" class="graphql-tab-content">
           <div class="merge-container">
             <div class="merge-inputs" id="mergeInputsContainer">
               <div class="merge-input-box">
                 <div class="merge-header">
                   <h4>Schema/Query 1</h4>
-                  <button data-clear-merge="0" class="btn-small">Clear</button>
+                  <button onclick="clearMergeInput(0)" class="btn-small">
+                    Clear
+                  </button>
                 </div>
                 <textarea
                   id="mergeInput0"
@@ -512,7 +530,9 @@ mutation CreateUser {
               <div class="merge-input-box">
                 <div class="merge-header">
                   <h4>Schema/Query 2</h4>
-                  <button data-clear-merge="1" class="btn-small">Clear</button>
+                  <button onclick="clearMergeInput(1)" class="btn-small">
+                    Clear
+                  </button>
                 </div>
                 <textarea
                   id="mergeInput1"
@@ -523,7 +543,7 @@ mutation CreateUser {
             </div>
 
             <div class="merge-controls">
-              <button id="btnAddMergeInput" class="btn-secondary">
+              <button onclick="addMergeInput()" class="btn-secondary">
                 ➕ Add Another
               </button>
               <select id="mergeStrategy">
@@ -532,7 +552,7 @@ mutation CreateUser {
                 <option value="keep_last">Keep Last on Conflict</option>
                 <option value="interactive">Interactive Resolution</option>
               </select>
-              <button id="btnPerformMerge" class="btn-primary">
+              <button onclick="performMerge()" class="btn-primary">
                 🔀 Merge All
               </button>
             </div>
@@ -546,37 +566,161 @@ mutation CreateUser {
               <div class="graphql-toolbar">
                 <h4>Merged Result</h4>
                 <span id="mergeStats" class="stats-text"></span>
-                <button id="btnCopyMerged" class="btn-tool">📋 Copy</button>
+                <button onclick="copyMerged()" class="btn-tool">📋 Copy</button>
               </div>
               <pre id="mergeOutput" class="code-output"></pre>
             </div>
           </div>
         </div>
-      </section>
-      <!-- Модальное окно сравнения -->
-      <div id="compareModal" class="modal hidden">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h2>🔍 Сравнение сообщений</h2>
-            <button class="modal-close" id="btnCloseCompare">✕</button>
+
+        <div id="validate-tab" class="graphql-tab-content">
+          <div class="validate-container">
+            <div class="validate-inputs">
+              <div class="validate-schema">
+                <h4>Schema</h4>
+                <textarea
+                  id="validateSchema"
+                  class="code-editor"
+                  placeholder="Enter or paste GraphQL schema..."
+                ></textarea>
+              </div>
+              <div class="validate-query">
+                <h4>Query/Mutation</h4>
+                <textarea
+                  id="validateQuery"
+                  class="code-editor"
+                  placeholder="Enter query to validate..."
+                ></textarea>
+              </div>
+            </div>
+
+            <div class="validate-controls">
+              <button onclick="performValidation()" class="btn-primary">
+                ✅ Validate
+              </button>
+            </div>
+
+            <div id="validationResult" class="validation-result"></div>
           </div>
-          <div class="modal-body">
-            <div class="compare-panels">
-              <div class="compare-left">
-                <h3 id="compareTitle1"></h3>
-                <pre id="compareContent1"></pre>
+        </div>
+
+        <div id="introspect-tab" class="graphql-tab-content">
+          <div class="introspect-container">
+            <div class="introspect-form">
+              <h3>🔍 Introspect GraphQL Endpoint</h3>
+
+              <div class="form-group">
+                <label>Endpoint URL:</label>
+                <input
+                  type="text"
+                  id="introspectUrl"
+                  placeholder="https://api.example.com/graphql"
+                  class="form-input"
+                />
               </div>
-              <div class="compare-right">
-                <h3 id="compareTitle2"></h3>
-                <pre id="compareContent2"></pre>
+
+              <div class="form-group">
+                <label>Headers (JSON format):</label>
+                <textarea
+                  id="introspectHeaders"
+                  class="form-textarea"
+                  placeholder='{"Authorization": "Bearer token", "Content-Type": "application/json"}'
+                  rows="3"
+                ></textarea>
               </div>
+
+              <div class="form-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="includeDeprecated" checked />
+                  Include deprecated fields
+                </label>
+              </div>
+
+              <button onclick="performIntrospection()" class="btn-primary">
+                🔍 Introspect
+              </button>
+            </div>
+
+            <div class="introspect-output">
+              <div class="graphql-toolbar">
+                <h4>Introspected Schema</h4>
+                <span id="introspectStatus"></span>
+                <button onclick="copyIntrospected()" class="btn-tool" disabled>
+                  📋 Copy
+                </button>
+                <button onclick="saveIntrospected()" class="btn-tool" disabled>
+                  💾 Save
+                </button>
+              </div>
+              <pre id="introspectOutput" class="code-output"></pre>
+            </div>
+          </div>
+        </div>
+
+        <div id="builder-tab" class="graphql-tab-content">
+          <div class="builder-container">
+            <div class="builder-schema">
+              <h4>Schema Explorer</h4>
+              <div id="schemaTree" class="schema-tree"></div>
+            </div>
+
+            <div class="builder-canvas">
+              <h4>Query Builder</h4>
+              <div id="queryCanvas" class="query-canvas">
+                <div class="query-type-selector">
+                  <label>
+                    <input
+                      type="radio"
+                      name="queryType"
+                      value="query"
+                      checked
+                    />
+                    Query
+                  </label>
+                  <label>
+                    <input type="radio" name="queryType" value="mutation" />
+                    Mutation
+                  </label>
+                </div>
+                <div id="queryBuilderArea"></div>
+              </div>
+            </div>
+
+            <div class="builder-result">
+              <h4>Generated Query</h4>
+              <pre id="builtQuery" class="code-output"></pre>
+              <button onclick="copyBuiltQuery()" class="btn-primary">
+                📋 Copy Query
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- GRAPHQL SECTION - КОНЕЦ -->
+    </main>
+
+    <!-- Модальное окно сравнения -->
+    <div id="compareModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>🔍 Сравнение сообщений</h2>
+          <button class="modal-close" onclick="closeCompareModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="compare-panels">
+            <div class="compare-left">
+              <h3 id="compareTitle1"></h3>
+              <pre id="compareContent1"></pre>
+            </div>
+            <div class="compare-right">
+              <h3 id="compareTitle2"></h3>
+              <pre id="compareContent2"></pre>
             </div>
           </div>
         </div>
       </div>
-    </main>
+    </div>
 
-    <!-- ГЛАВНЫЙ JS ФАЙЛ (ES6 MODULE) -->
-    <script type="module" src="js/app.js"></script>
+    <script src="/app.js"></script>
   </body>
 </html>
