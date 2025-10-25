@@ -1,87 +1,99 @@
 // ============================================
-// JSON MODULE
+// JSON MODULE - MAIN
 // ============================================
 
-import { formatJson } from "../../core/api.js";
-import {
-  downloadText,
-  copyToClipboard,
-  setText,
-  formatBytes,
-} from "../../core/utils.js";
-import { showSuccess, showError } from "../../components/notification.js";
+import { formatJSON, wrapJSON, unwrapJSON } from '../../core/api.js';
+import { downloadText, formatBytes } from '../../core/utils.js';
+import { showSuccess, showError, showWarning } from '../../components/notification.js';
 
-let currentJsonOutput = "";
+let initialized = false;
+let currentOutput = '';
 
 /**
- * Инициализация модуля JSON
+ * Инициализация JSON модуля
  */
 export function initJson() {
-  console.log("🚀 JSON Module: Initializing...");
-
-  // Обработчики файлов
-  const jsonFile = document.getElementById("jsonFile");
-  if (jsonFile) {
-    jsonFile.addEventListener("change", handleJsonFileUpload);
+  if (initialized) {
+    console.log('��� JSON already initialized');
+    return;
   }
 
-  // Переключение режимов
-  const modeRadios = document.querySelectorAll('input[name="jsonMode"]');
-  modeRadios.forEach((radio) => {
-    radio.addEventListener("change", handleModeChange);
+  console.log('��� JSON module initializing...');
+
+  try {
+    // Привязка обработчиков
+    attachEventListeners();
+
+    initialized = true;
+    console.log('✅ JSON module initialized');
+  } catch (error) {
+    console.error('❌ JSON initialization failed:', error);
+  }
+}
+
+/**
+ * Привязка обработчиков событий
+ */
+function attachEventListeners() {
+  // Загрузка файла
+  const fileInput = document.getElementById('jsonFile');
+  if (fileInput) {
+    fileInput.addEventListener('change', handleFileUpload);
+  }
+
+  // Переключение режима
+  document.querySelectorAll('input[name="jsonMode"]').forEach(radio => {
+    radio.addEventListener('change', handleModeChange);
   });
 
   // Кнопки форматирования
-  const btnPretty = document.getElementById("btnPretty");
-  const btnMinify = document.getElementById("btnMinify");
-  const btnValidate = document.getElementById("btnValidate");
+  const btnPretty = document.getElementById('btnPretty');
+  if (btnPretty) {
+    btnPretty.addEventListener('click', () => jsonAction('pretty'));
+  }
 
-  if (btnPretty)
-    btnPretty.addEventListener("click", () => handleFormat("pretty"));
-  if (btnMinify)
-    btnMinify.addEventListener("click", () => handleFormat("minify"));
-  if (btnValidate)
-    btnValidate.addEventListener("click", () => handleFormat("validate"));
+  const btnMinify = document.getElementById('btnMinify');
+  if (btnMinify) {
+    btnMinify.addEventListener('click', () => jsonAction('minify'));
+  }
 
-  // Кнопки wrapper
-  const btnWrap = document.getElementById("btnWrap");
-  const btnUnwrap = document.getElementById("btnUnwrap");
+  const btnValidate = document.getElementById('btnValidate');
+  if (btnValidate) {
+    btnValidate.addEventListener('click', () => jsonAction('validate'));
+  }
 
-  if (btnWrap) btnWrap.addEventListener("click", () => handleWrapper("wrap"));
-  if (btnUnwrap)
-    btnUnwrap.addEventListener("click", () => handleWrapper("unwrap"));
+  // Кнопки wrap/unwrap
+  const btnWrap = document.getElementById('btnWrap');
+  if (btnWrap) {
+    btnWrap.addEventListener('click', handleWrap);
+  }
 
-  // Кнопки экспорта
-  const btnCopyJson = document.getElementById("btnCopyJson");
-  const btnDownloadJson = document.getElementById("btnDownloadJson");
+  const btnUnwrap = document.getElementById('btnUnwrap');
+  if (btnUnwrap) {
+    btnUnwrap.addEventListener('click', handleUnwrap);
+  }
 
+  // Кнопки копирования и скачивания
+  const btnCopyJson = document.getElementById('btnCopyJson');
   if (btnCopyJson) {
-    btnCopyJson.addEventListener("click", async () => {
-      if (await copyToClipboard(currentJsonOutput)) {
-        showSuccess("JSON скопирован в буфер обмена");
-      }
-    });
+    btnCopyJson.addEventListener('click', copyOutput);
   }
 
+  const btnDownloadJson = document.getElementById('btnDownloadJson');
   if (btnDownloadJson) {
-    btnDownloadJson.addEventListener("click", () => {
-      downloadText(currentJsonOutput, "result.json");
-      showSuccess("Файл скачан");
-    });
+    btnDownloadJson.addEventListener('click', downloadOutput);
   }
-
-  console.log("✅ JSON Module: Ready");
 }
 
 /**
  * Обработка загрузки файла
  */
-async function handleJsonFileUpload(e) {
+async function handleFileUpload(e) {
   const file = e.target.files[0];
-  const info = document.getElementById("jsonFileInfo");
-
+  const info = document.getElementById('jsonFileInfo');
+  
   if (!file) {
-    if (info) info.textContent = "";
+    if (info) info.textContent = '';
     return;
   }
 
@@ -90,195 +102,208 @@ async function handleJsonFileUpload(e) {
   }
 
   const text = await file.text();
-  const input = document.getElementById("jsonInput");
+  const input = document.getElementById('jsonInput');
   if (input) {
     input.value = text;
   }
 
-  showSuccess("Файл загружен");
+  showSuccess('Файл загружен успешно');
 }
 
 /**
- * Переключение режима (format/wrapper)
+ * Переключение режима форматирования
  */
 function handleModeChange(e) {
   const mode = e.target.value;
-  const formatButtons = document.getElementById("formatButtons");
-  const wrapperButtons = document.getElementById("wrapperButtons");
-  const hint = document.getElementById("jsonModeHint");
+  const formatButtons = document.getElementById('formatButtons');
+  const wrapperButtons = document.getElementById('wrapperButtons');
+  const hint = document.getElementById('jsonModeHint');
 
-  if (mode === "format") {
-    formatButtons.classList.remove("hidden");
-    wrapperButtons.classList.add("hidden");
+  if (mode === 'format') {
+    formatButtons?.classList.remove('hidden');
+    wrapperButtons?.classList.add('hidden');
     if (hint) {
-      hint.textContent =
-        "Pretty форматирует с отступами, Minify убирает пробелы";
+      hint.textContent = 'Pretty форматирует с отступами, Minify убирает пробелы';
     }
-  } else if (mode === "wrapper") {
-    formatButtons.classList.add("hidden");
-    wrapperButtons.classList.remove("hidden");
+  } else {
+    formatButtons?.classList.add('hidden');
+    wrapperButtons?.classList.remove('hidden');
     if (hint) {
-      hint.textContent =
-        "Wrap оборачивает значения в {value: ...}, Unwrap разворачивает обратно";
+      hint.textContent = 'Wrap оборачивает значения в {"value": ...}, Unwrap разворачивает обратно';
     }
+  }
+
+  // Очищаем вывод при смене режима
+  clearOutput();
+}
+
+/**
+ * Обработка действий форматирования
+ */
+async function jsonAction(action) {
+  const input = document.getElementById('jsonInput')?.value;
+
+  if (!input?.trim()) {
+    showError('Введите JSON для обработки');
+    return;
+  }
+
+  try {
+    const res = await formatJSON(action, input);
+    displayResult(res);
+
+    if (res.output) {
+      showSuccess(`JSON ${action} выполнен успешно`);
+    }
+  } catch (error) {
+    console.error('Error processing JSON:', error);
+    showError('Ошибка обработки JSON');
   }
 }
 
 /**
- * Форматирование JSON
+ * Wrap значений
  */
-async function handleFormat(action) {
-  const input = document.getElementById("jsonInput")?.value;
+async function handleWrap() {
+  const input = document.getElementById('jsonInput')?.value;
 
   if (!input?.trim()) {
-    showError("Введите JSON для обработки");
+    showError('Введите JSON для обработки');
     return;
   }
 
-  clearOutput();
-
   try {
-    const result = await formatJson(action, input, {});
+    const res = await wrapJSON(input);
+    displayResult(res, 'wrapped');
 
-    if (!result.success) {
-      showError(result.message || "Ошибка форматирования");
-      displayErrors(result.message || result.error);
-      return;
+    if (res.output) {
+      showSuccess('Значения обернуты в {"value": ...}');
     }
-
-    displayOutput(result.output || result.result || "");
-    displayStats(result.stats);
-    displayIntegrity(result.integrity);
-
-    showSuccess(`${action.toUpperCase()} выполнен`);
   } catch (error) {
-    console.error("Format error:", error);
-    showError("Ошибка форматирования");
-    displayErrors(error.message);
+    console.error('Error wrapping JSON:', error);
+    showError('Ошибка обработки: ' + error.message);
   }
 }
 
 /**
- * Обработка wrapper (wrap/unwrap)
+ * Unwrap значений
  */
-async function handleWrapper(action) {
-  const input = document.getElementById("jsonInput")?.value;
+async function handleUnwrap() {
+  const input = document.getElementById('jsonInput')?.value;
 
   if (!input?.trim()) {
-    showError("Введите JSON для обработки");
+    showError('Введите JSON для обработки');
     return;
   }
 
-  clearOutput();
-
   try {
-    const result = await formatJson(action, input, {});
+    const res = await unwrapJSON(input);
+    displayResult(res, 'unwrapped');
 
-    if (!result.success) {
-      showError(result.message || "Ошибка обработки");
-      displayErrors(result.message || result.error);
-      return;
+    if (res.output) {
+      showSuccess('Значения развернуты');
     }
-
-    displayOutput(result.output || result.result || "");
-    displayStats(result.stats);
-
-    showSuccess(`${action.toUpperCase()} выполнен`);
   } catch (error) {
-    console.error("Wrapper error:", error);
-    showError("Ошибка обработки");
-    displayErrors(error.message);
+    console.error('Error unwrapping JSON:', error);
+    showError('Ошибка обработки: ' + error.message);
   }
 }
 
 /**
  * Отображение результата
  */
-function displayOutput(output) {
-  currentJsonOutput = output;
-  const outputEl = document.getElementById("jsonOutput");
+function displayResult(res, action = '') {
+  const output = res.output ?? '';
+  currentOutput = output;
+
+  const outputEl = document.getElementById('jsonOutput');
   if (outputEl) {
     outputEl.textContent = output;
   }
 
-  const btnCopy = document.getElementById("btnCopyJson");
-  const btnDownload = document.getElementById("btnDownloadJson");
-
-  if (btnCopy) btnCopy.disabled = false;
-  if (btnDownload) btnDownload.disabled = false;
-}
-
-/**
- * Отображение статистики
- */
-function displayStats(stats) {
-  if (!stats) return;
-
-  const statsEl = document.getElementById("jsonStats");
-  if (statsEl) {
-    const parts = [];
-    if (stats.keys !== undefined) parts.push(`Ключей: ${stats.keys}`);
-    if (stats.values !== undefined) parts.push(`Значений: ${stats.values}`);
-    if (stats.originalSize !== undefined)
-      parts.push(`Исходный: ${formatBytes(stats.originalSize)}`);
-    if (stats.formattedSize !== undefined)
-      parts.push(`Форматированный: ${formatBytes(stats.formattedSize)}`);
-
-    statsEl.textContent = parts.join(" | ");
+  const statsEl = document.getElementById('jsonStats');
+  if (statsEl && res.stats) {
+    let statsText = `Вход: ${res.stats.inputBytes} B, Выход: ${res.stats.outputBytes} B, ${res.stats.durationMs} мс`;
+    if (action === 'wrapped') {
+      statsText += ' | ✅ Значения обернуты в {"value": ...}';
+    } else if (action === 'unwrapped') {
+      statsText += ' | ✅ Значения развернуты';
+    }
+    statsEl.textContent = statsText;
   }
-}
 
-/**
- * Отображение информации о целостности
- */
-function displayIntegrity(integrity) {
-  if (!integrity) return;
-
-  const integrityEl = document.getElementById("jsonIntegrity");
-  if (integrityEl) {
-    const status = integrity.valid ? "✅ Валидный JSON" : "❌ Невалидный JSON";
-    const depth = integrity.maxDepth ? ` | Глубина: ${integrity.maxDepth}` : "";
-    const arrays = integrity.arrayCount
-      ? ` | Массивов: ${integrity.arrayCount}`
-      : "";
-    const objects = integrity.objectCount
-      ? ` | Объектов: ${integrity.objectCount}`
-      : "";
-
-    integrityEl.textContent = `${status}${depth}${arrays}${objects}`;
-  }
-}
-
-/**
- * Отображение ошибок
- */
-function displayErrors(errorMessage) {
-  const errorsEl = document.getElementById("jsonErrors");
+  const errorsEl = document.getElementById('jsonErrors');
   if (errorsEl) {
-    errorsEl.textContent = errorMessage;
-    errorsEl.style.display = "block";
+    errorsEl.textContent = res.errors && res.errors.length ? res.errors.join('\n') : '';
   }
+
+  const integrityEl = document.getElementById('jsonIntegrity');
+  if (integrityEl) {
+    const integ = res.integrity;
+    if (integ) {
+      if (action === 'wrapped' || action === 'unwrapped') {
+        integrityEl.textContent = 'Данные сохранены, структура изменена';
+      } else {
+        integrityEl.textContent = `Целостность: strict=${integ.equalStrict}, normalized=${integ.equalNormalized}, in=${integ.inputHash?.slice(0, 8)}…, out=${integ.outputHash?.slice(0, 8)}…`;
+      }
+    } else {
+      integrityEl.textContent = '';
+    }
+  }
+
+  const btnCopyJson = document.getElementById('btnCopyJson');
+  const btnDownloadJson = document.getElementById('btnDownloadJson');
+
+  if (btnCopyJson) btnCopyJson.disabled = !output;
+  if (btnDownloadJson) btnDownloadJson.disabled = !output;
+}
+
+/**
+ * Копирование результата
+ */
+function copyOutput() {
+  if (!currentOutput) return;
+
+  navigator.clipboard.writeText(currentOutput)
+    .then(() => {
+      showSuccess('JSON скопирован в буфер обмена');
+    })
+    .catch(err => {
+      console.error('Failed to copy:', err);
+      showError('Ошибка копирования');
+    });
+}
+
+/**
+ * Скачивание результата
+ */
+function downloadOutput() {
+  if (!currentOutput) return;
+
+  const mode = document.querySelector('input[name="jsonMode"]:checked')?.value;
+  const filename = mode === 'wrapper' ? 'wrapped.json' : 'result.json';
+  
+  downloadText(currentOutput, filename);
+  showSuccess('Файл загружен');
 }
 
 /**
  * Очистка вывода
  */
 function clearOutput() {
-  currentJsonOutput = "";
-
-  setText("jsonOutput", "");
-  setText("jsonStats", "");
-  setText("jsonIntegrity", "");
-  setText("jsonErrors", "");
-
-  const errorsEl = document.getElementById("jsonErrors");
-  if (errorsEl) {
-    errorsEl.style.display = "none";
-  }
-
-  const btnCopy = document.getElementById("btnCopyJson");
-  const btnDownload = document.getElementById("btnDownloadJson");
-
-  if (btnCopy) btnCopy.disabled = true;
-  if (btnDownload) btnDownload.disabled = true;
+  currentOutput = '';
+  
+  const outputEl = document.getElementById('jsonOutput');
+  if (outputEl) outputEl.textContent = '';
+  
+  const statsEl = document.getElementById('jsonStats');
+  if (statsEl) statsEl.textContent = '';
+  
+  const errorsEl = document.getElementById('jsonErrors');
+  if (errorsEl) errorsEl.textContent = '';
+  
+  const integrityEl = document.getElementById('jsonIntegrity');
+  if (integrityEl) integrityEl.textContent = '';
 }
+
+console.log('✅ JSON module loaded');

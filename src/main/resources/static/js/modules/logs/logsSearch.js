@@ -1,75 +1,56 @@
 // ============================================
-// LOGS - ПОИСК И ФИЛЬТРАЦИЯ
+// LOGS SEARCH - FILTERING
 // ============================================
 
-import { escapeHtml } from "../../core/utils.js";
+import { renderLogItems, updateChart } from './logsUI.js';
 
+let filteredItems = [];
 let searchHistory = [];
 
 /**
- * Подсветка текста поиска
+ * Инициализация поиска
  */
-export function highlightText(text, searchTerm) {
-  if (!searchTerm || !document.getElementById("highlightSearch")?.checked) {
-    return escapeHtml(text);
-  }
-
-  const isRegex = document.getElementById("regexMode")?.checked;
-  let regex;
-
-  try {
-    if (isRegex) {
-      regex = new RegExp(`(${searchTerm})`, "gi");
-    } else {
-      const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      regex = new RegExp(`(${escaped})`, "gi");
-    }
-    return escapeHtml(text).replace(regex, '<span class="highlight">$1</span>');
-  } catch (e) {
-    console.error("Invalid regex:", e);
-    return escapeHtml(text);
-  }
+export function initLogsSearch() {
+  console.log('��� Logs search initializing...');
 }
 
 /**
- * Фильтрация элементов
+ * Поиск по логам
  */
-export function filterItems(allItems, searchTerm, filterType) {
-  return allItems.filter((item) => {
-    // Фильтр по типу
-    if (filterType !== "all") {
-      const itemType = item.key?.toLowerCase() || "";
-      const level = item.level?.toLowerCase() || "";
+export function searchLogs(allLogItems, selectedItems, starredItems) {
+  const searchTerm = document.getElementById('logsSearch')?.value.trim() || '';
+  const filterType = document.getElementById('logsFilter')?.value || 'all';
+  const sortBy = document.getElementById('logsSort')?.value || 'number';
 
-      if (filterType === "request" && !itemType.includes("request"))
-        return false;
-      if (filterType === "response" && !itemType.includes("response"))
-        return false;
-      if (filterType === "internal" && !itemType.includes("internal"))
-        return false;
-      if (filterType === "external" && !itemType.includes("external"))
-        return false;
-      if (filterType === "info" && level !== "info") return false;
-      if (filterType === "debug" && level !== "debug") return false;
-      if (filterType === "error" && level !== "error") return false;
+  filteredItems = allLogItems.filter(item => {
+    // Фильтр по типу
+    if (filterType !== 'all') {
+      const itemType = item.key?.toLowerCase() || '';
+      const level = item.level?.toLowerCase() || '';
+
+      if (filterType === 'request' && !itemType.includes('request')) return false;
+      if (filterType === 'response' && !itemType.includes('response')) return false;
+      if (filterType === 'internal' && !itemType.includes('internal')) return false;
+      if (filterType === 'external' && !itemType.includes('external')) return false;
+      if (filterType === 'info' && level !== 'info') return false;
+      if (filterType === 'debug' && level !== 'debug') return false;
+      if (filterType === 'error' && level !== 'error') return false;
     }
 
-    // Поиск по тексту
+    // Поиск
     if (searchTerm) {
       const searchIn = [
-        item.pretty || "",
-        item.key || "",
-        item.description || "",
-        item.raw || "",
-      ]
-        .join(" ")
-        .toLowerCase();
+        item.pretty || '',
+        item.key || '',
+        item.description || '',
+        item.raw || ''
+      ].join(' ').toLowerCase();
 
-      const isRegex = document.getElementById("regexMode")?.checked;
+      const isRegex = document.getElementById('regexMode')?.checked;
 
       if (isRegex) {
         try {
-          const regex = new RegExp(searchTerm, "i");
+          const regex = new RegExp(searchTerm, 'i');
           return regex.test(searchIn);
         } catch (e) {
           return searchIn.includes(searchTerm.toLowerCase());
@@ -81,101 +62,79 @@ export function filterItems(allItems, searchTerm, filterType) {
 
     return true;
   });
-}
 
-/**
- * Сортировка элементов
- */
-export function sortItems(items, sortBy) {
-  const sorted = [...items];
-
-  sorted.sort((a, b) => {
+  // Сортировка
+  filteredItems.sort((a, b) => {
     switch (sortBy) {
-      case "number":
+      case 'number':
         return (a.number || 0) - (b.number || 0);
-      case "type":
-        return (a.key || "").localeCompare(b.key || "");
-      case "size":
+      case 'type':
+        return (a.key || '').localeCompare(b.key || '');
+      case 'size':
         return (b.rawLength || 0) - (a.rawLength || 0);
-      case "timestamp":
-        return (a.timestamp || "").localeCompare(b.timestamp || "");
+      case 'timestamp':
+        return (a.timestamp || '').localeCompare(b.timestamp || '');
       default:
         return 0;
     }
   });
 
-  return sorted;
+  updateSearchCounter(filteredItems.length, allLogItems.length);
+
+  if (searchTerm && !searchHistory.includes(searchTerm)) {
+    searchHistory.unshift(searchTerm);
+    searchHistory = searchHistory.slice(0, 5);
+    updateSearchHistory(searchHistory);
+  }
+
+  renderLogItems(filteredItems, allLogItems, selectedItems, starredItems);
 }
 
 /**
- * Обновление счётчика результатов поиска
+ * Обновление счетчика поиска
  */
-export function updateSearchCounter(filteredCount, totalCount) {
-  const counter = document.getElementById("searchCounter");
+export function updateSearchCounter(filtered, total) {
+  const counter = document.getElementById('searchCounter');
   if (counter) {
-    if (filteredCount !== totalCount) {
-      counter.textContent = `${filteredCount} из ${totalCount}`;
-      counter.classList.add("active");
+    if (filtered !== total) {
+      counter.textContent = `${filtered} из ${total}`;
+      counter.classList.add('active');
     } else {
-      counter.classList.remove("active");
+      counter.classList.remove('active');
     }
   }
 }
 
 /**
- * Добавление в историю поиска
+ * Обновление истории поиска
  */
-export function addToSearchHistory(term) {
-  if (term && !searchHistory.includes(term)) {
-    searchHistory.unshift(term);
-    searchHistory = searchHistory.slice(0, 5);
-    updateSearchHistoryUI();
-  }
-}
-
-/**
- * Получение истории поиска
- */
-export function getSearchHistory() {
-  return searchHistory;
-}
-
-/**
- * Обновление UI истории поиска
- */
-export function updateSearchHistoryUI() {
-  const historyDiv = document.getElementById("searchHistory");
+export function updateSearchHistory(history) {
+  searchHistory = history;
+  const historyDiv = document.getElementById('searchHistory');
   if (!historyDiv) return;
 
-  historyDiv.innerHTML = "";
+  historyDiv.innerHTML = '';
 
-  if (searchHistory.length > 0) {
-    const label = document.createElement("span");
-    label.textContent = "История: ";
-    label.style.fontSize = "12px";
-    label.style.color = "var(--text-secondary)";
+  if (history.length > 0) {
+    const label = document.createElement('span');
+    label.textContent = 'История: ';
+    label.style.fontSize = '12px';
+    label.style.color = 'var(--text-secondary)';
     historyDiv.appendChild(label);
 
-    searchHistory.forEach((term) => {
-      const item = document.createElement("span");
-      item.className = "search-history-item";
+    history.forEach(term => {
+      const item = document.createElement('span');
+      item.className = 'search-history-item';
       item.textContent = term;
       item.onclick = () => {
-        const searchInput = document.getElementById("logsSearch");
-        if (searchInput) {
-          searchInput.value = term;
-          searchInput.dispatchEvent(new Event("input"));
-        }
+        document.getElementById('logsSearch').value = term;
+        // Триггерим поиск
+        const event = new Event('input', { bubbles: true });
+        document.getElementById('logsSearch').dispatchEvent(event);
       };
       historyDiv.appendChild(item);
     });
   }
 }
 
-/**
- * Очистка истории поиска
- */
-export function clearSearchHistory() {
-  searchHistory = [];
-  updateSearchHistoryUI();
-}
+console.log('✅ Logs search module loaded');

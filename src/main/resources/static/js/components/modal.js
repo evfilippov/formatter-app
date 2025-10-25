@@ -2,67 +2,60 @@
 // МОДАЛЬНЫЕ ОКНА
 // ============================================
 
-let activeModal = null;
-
-/**
- * Открыть модальное окно
- */
-export function openModal(modalId) {
-  const modal = document.getElementById(modalId);
-  if (modal) {
-    modal.classList.remove("hidden");
-    activeModal = modal;
-
-    // Закрытие по Escape
-    document.addEventListener("keydown", handleEscapeKey);
-
-    // Закрытие по клику вне окна
-    modal.addEventListener("click", handleBackdropClick);
-  }
-}
-
-/**
- * Закрыть модальное окно
- */
-export function closeModal(modalId) {
-  const modal = modalId ? document.getElementById(modalId) : activeModal;
-  if (modal) {
-    modal.classList.add("hidden");
-    activeModal = null;
-
-    document.removeEventListener("keydown", handleEscapeKey);
-    modal.removeEventListener("click", handleBackdropClick);
-  }
-}
-
-/**
- * Закрытие по Escape
- */
-function handleEscapeKey(e) {
-  if (e.key === "Escape" && activeModal) {
-    closeModal();
-  }
-}
-
-/**
- * Закрытие по клику на backdrop
- */
-function handleBackdropClick(e) {
-  if (e.target.classList.contains("modal")) {
-    closeModal();
-  }
-}
-
-/**
- * Инициализация обработчиков модальных окон
- */
 export function initModals() {
-  // Обработка кнопок закрытия
-  document.addEventListener("click", (e) => {
-    if (e.target.classList.contains("modal-close")) {
-      closeModal();
+  console.log('��� Modals initialized');
+
+  // Закрытие модального окна по клику на backdrop
+  document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal')) {
+      closeModal(e.target.id);
     }
   });
 
-  console.log("✅ Modals initialized");
+  // Закрытие по кнопке закрытия
+  document.querySelectorAll('.modal-close').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const modal = e.target.closest('.modal');
+      if (modal) closeModal(modal.id);
+    });
+  });
+
+  // Закрытие по ESC
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal:not(.hidden)').forEach(modal => {
+        closeModal(modal.id);
+      });
+    }
+  });
+
+  // Обработчик для кнопки закрытия сравнения
+  const btnCloseCompare = document.getElementById('btnCloseCompare');
+  if (btnCloseCompare) {
+    btnCloseCompare.addEventListener('click', () => {
+      closeModal('compareModal');
+    });
+  }
 }
+
+export function openModal(id) {
+  const modal = document.getElementById(id);
+  if (modal) {
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+export function closeModal(id) {
+  const modal = document.getElementById(id);
+  if (modal) {
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+}
+
+// Экспорт в window для HTML onclick
+window.closeModal = closeModal;
+window.openModal = openModal;
+
+console.log('✅ Modal component loaded');

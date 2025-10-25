@@ -1,26 +1,14 @@
 // ============================================
-// УТИЛИТЫ
+// UTILITIES
 // ============================================
 
 /**
- * Отправка POST запроса с JSON данными
- */
-export async function postJson(url, body) {
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  return await resp.json();
-}
-
-/**
- * Установка текста элемента по ID
+ * Установка текстового содержимого элемента
  */
 export function setText(id, text) {
-  const el = document.getElementById(id);
-  if (el) {
-    el.textContent = text ?? "";
+  const element = document.getElementById(id);
+  if (element) {
+    element.textContent = text ?? '';
   }
 }
 
@@ -28,9 +16,9 @@ export function setText(id, text) {
  * Скачивание текста как файла
  */
 export function downloadText(text, filename) {
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
+  const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   a.click();
@@ -38,17 +26,20 @@ export function downloadText(text, filename) {
 }
 
 /**
- * Форматирование байтов в читаемый вид
+ * Копирование в буфер обмена
  */
-export function formatBytes(bytes) {
-  if (!bytes) return "0 B";
-  const sizes = ["B", "KB", "MB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + " " + sizes[i];
+export async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (error) {
+    console.error('Failed to copy:', error);
+    return false;
+  }
 }
 
 /**
- * Debounce функция для оптимизации частых вызовов
+ * Debounce функция
  */
 export function debounce(func, wait) {
   let timeout;
@@ -63,54 +54,84 @@ export function debounce(func, wait) {
 }
 
 /**
- * Экранирование HTML символов
+ * Форматирование байтов
+ */
+export function formatBytes(bytes) {
+  if (!bytes) return '0 B';
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i];
+}
+
+/**
+ * Escape HTML
  */
 export function escapeHtml(text) {
-  const div = document.createElement("div");
+  const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
 
 /**
- * Копирование текста в буфер обмена
+ * Highlight текста
  */
-export async function copyToClipboard(text) {
+export function highlightText(text, searchTerm) {
+  if (!searchTerm) return text;
+
   try {
-    await navigator.clipboard.writeText(text);
+    const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    return text.replace(regex, '<span class="highlight">$1</span>');
+  } catch (e) {
+    console.error('Highlight error:', e);
+    return text;
+  }
+}
+
+/**
+ * Проверка валидности JSON
+ */
+export function isValidJSON(str) {
+  try {
+    JSON.parse(str);
     return true;
-  } catch (err) {
-    console.error("Failed to copy:", err);
+  } catch (e) {
     return false;
   }
 }
 
 /**
- * Форматирование JSON с номерами строк
+ * Проверка валидности XML
  */
-export function formatJsonWithLineNumbers(json) {
-  const lines = json.split("\n");
-  return lines
-    .map((line) => `<span class="line">${escapeHtml(line)}</span>`)
-    .join("\n");
+export function isValidXML(str) {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(str, 'text/xml');
+    return !doc.querySelector('parsererror');
+  } catch (e) {
+    return false;
+  }
 }
 
 /**
- * Получение элемента по ID с проверкой
+ * Генерация уникального ID
  */
-export function getElement(id) {
-  const el = document.getElementById(id);
-  if (!el) {
-    console.warn(`Element with id "${id}" not found`);
-  }
-  return el;
+export function generateId() {
+  return `id-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
 /**
- * Установка видимости элемента
+ * Throttle функция
  */
-export function toggleVisibility(id, visible) {
-  const el = getElement(id);
-  if (el) {
-    el.classList.toggle("hidden", !visible);
-  }
+export function throttle(func, limit) {
+  let inThrottle;
+  return function(...args) {
+    if (!inThrottle) {
+      func.apply(this, args);
+      inThrottle = true;
+      setTimeout(() => inThrottle = false, limit);
+    }
+  };
 }
+
+console.log('✅ Utils module loaded');

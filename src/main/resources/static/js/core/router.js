@@ -19,6 +19,8 @@ export function navigate(hash) {
 export function onRoute() {
   const hash = window.location.hash?.substring(1) || "home";
 
+  console.log("🔀 Route changed to:", hash);
+
   // Скрываем все секции
   for (const route of routes) {
     const el = document.getElementById(route);
@@ -28,59 +30,52 @@ export function onRoute() {
   }
 
   // Обновляем активную ссылку в навигации
-  updateActiveNavLink(hash);
-
-  // Уведомляем другие модули о смене роута
-  currentRoute = hash;
-  window.dispatchEvent(
-    new CustomEvent("routeChange", {
-      detail: { route: hash, previous: currentRoute },
-    })
-  );
-
-  console.log(`📍 Route changed: ${hash}`);
-}
-
-/**
- * Обновление активной ссылки в навигации
- */
-function updateActiveNavLink(hash) {
-  const navLinks = document.querySelectorAll("nav a");
-  navLinks.forEach((link) => {
-    const href = link.getAttribute("href")?.substring(1);
-    if (href === hash) {
-      link.style.background = "rgba(255, 255, 255, 0.15)";
+  document.querySelectorAll("header nav a").forEach((link) => {
+    const linkRoute = link.getAttribute("href")?.substring(1);
+    if (linkRoute === hash) {
+      link.classList.add("active");
     } else {
-      link.style.background = "";
+      link.classList.remove("active");
     }
   });
-}
 
-/**
- * Получение текущего роута
- */
-export function getCurrentRoute() {
-  return currentRoute;
+  currentRoute = hash;
+
+  // Отправляем событие для модулей
+  window.dispatchEvent(
+    new CustomEvent("routeChange", {
+      detail: { route: hash },
+    })
+  );
 }
 
 /**
  * Инициализация роутера
  */
 export function initRouter() {
-  // Слушаем изменения hash
+  console.log("🔀 Router: Initializing...");
+
+  // Слушаем изменение hash
   window.addEventListener("hashchange", onRoute);
 
-  // Обрабатываем клики по навигации
-  document.addEventListener("click", (e) => {
-    const target = e.target.closest("[data-navigate]");
-    if (target) {
+  // Обрабатываем клики по ссылкам навигации
+  document.querySelectorAll("header nav a[href^='#']").forEach((link) => {
+    link.addEventListener("click", (e) => {
       e.preventDefault();
-      const route = target.dataset.navigate;
-      navigate(route);
-    }
+      const hash = link.getAttribute("href");
+      navigate(hash);
+    });
   });
 
-  // Инициализируем начальный роут
+  // Обрабатываем клики по карточкам на главной странице
+  document.querySelectorAll(".card[data-route]").forEach((card) => {
+    card.addEventListener("click", () => {
+      const route = card.dataset.route;
+      navigate("#" + route);
+    });
+  });
+
+  // Первоначальная загрузка роута
   onRoute();
 
   console.log("✅ Router initialized");

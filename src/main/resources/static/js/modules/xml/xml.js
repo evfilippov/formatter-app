@@ -1,73 +1,81 @@
 // ============================================
-// XML MODULE
+// XML MODULE - MAIN
 // ============================================
 
-import { formatXml } from "../../core/api.js";
-import {
-  downloadText,
-  copyToClipboard,
-  setText,
-  formatBytes,
-} from "../../core/utils.js";
-import { showSuccess, showError } from "../../components/notification.js";
+import { formatXML } from '../../core/api.js';
+import { downloadText, formatBytes } from '../../core/utils.js';
+import { showSuccess, showError } from '../../components/notification.js';
 
-let currentXmlOutput = "";
+let initialized = false;
+let currentOutput = '';
 
 /**
- * Инициализация модуля XML
+ * Инициализация XML модуля
  */
 export function initXml() {
-  console.log("🚀 XML Module: Initializing...");
+  if (initialized) {
+    console.log('��� XML already initialized');
+    return;
+  }
 
-  // Обработчики файлов
-  const xmlFile = document.getElementById("xmlFile");
-  if (xmlFile) {
-    xmlFile.addEventListener("change", handleXmlFileUpload);
+  console.log('��� XML module initializing...');
+
+  try {
+    attachEventListeners();
+    initialized = true;
+    console.log('✅ XML module initialized');
+  } catch (error) {
+    console.error('❌ XML initialization failed:', error);
+  }
+}
+
+/**
+ * Привязка обработчиков событий
+ */
+function attachEventListeners() {
+  // Загрузка файла
+  const fileInput = document.getElementById('xmlFile');
+  if (fileInput) {
+    fileInput.addEventListener('change', handleFileUpload);
   }
 
   // Кнопки форматирования
-  const btnXmlPretty = document.getElementById("btnXmlPretty");
-  const btnXmlMinify = document.getElementById("btnXmlMinify");
-  const btnXmlValidate = document.getElementById("btnXmlValidate");
+  const btnXmlPretty = document.getElementById('btnXmlPretty');
+  if (btnXmlPretty) {
+    btnXmlPretty.addEventListener('click', () => xmlAction('pretty'));
+  }
 
-  if (btnXmlPretty)
-    btnXmlPretty.addEventListener("click", () => handleFormat("pretty"));
-  if (btnXmlMinify)
-    btnXmlMinify.addEventListener("click", () => handleFormat("minify"));
-  if (btnXmlValidate)
-    btnXmlValidate.addEventListener("click", () => handleFormat("validate"));
+  const btnXmlMinify = document.getElementById('btnXmlMinify');
+  if (btnXmlMinify) {
+    btnXmlMinify.addEventListener('click', () => xmlAction('minify'));
+  }
 
-  // Кнопки экспорта
-  const btnCopyXml = document.getElementById("btnCopyXml");
-  const btnDownloadXml = document.getElementById("btnDownloadXml");
+  const btnXmlValidate = document.getElementById('btnXmlValidate');
+  if (btnXmlValidate) {
+    btnXmlValidate.addEventListener('click', () => xmlAction('validate'));
+  }
 
+  // Кнопки копирования и скачивания
+  const btnCopyXml = document.getElementById('btnCopyXml');
   if (btnCopyXml) {
-    btnCopyXml.addEventListener("click", async () => {
-      if (await copyToClipboard(currentXmlOutput)) {
-        showSuccess("XML скопирован в буфер обмена");
-      }
-    });
+    btnCopyXml.addEventListener('click', copyOutput);
   }
 
+  const btnDownloadXml = document.getElementById('btnDownloadXml');
   if (btnDownloadXml) {
-    btnDownloadXml.addEventListener("click", () => {
-      downloadText(currentXmlOutput, "result.xml");
-      showSuccess("Файл скачан");
-    });
+    btnDownloadXml.addEventListener('click', downloadOutput);
   }
-
-  console.log("✅ XML Module: Ready");
 }
 
 /**
  * Обработка загрузки файла
  */
-async function handleXmlFileUpload(e) {
+async function handleFileUpload(e) {
   const file = e.target.files[0];
-  const info = document.getElementById("xmlFileInfo");
-
+  const info = document.getElementById('xmlFileInfo');
+  
   if (!file) {
-    if (info) info.textContent = "";
+    if (info) info.textContent = '';
     return;
   }
 
@@ -76,138 +84,110 @@ async function handleXmlFileUpload(e) {
   }
 
   const text = await file.text();
-  const input = document.getElementById("xmlInput");
+  const input = document.getElementById('xmlInput');
   if (input) {
     input.value = text;
   }
 
-  showSuccess("Файл загружен");
+  showSuccess('Файл загружен успешно');
 }
 
 /**
- * Форматирование XML
+ * Обработка действий с XML
  */
-async function handleFormat(action) {
-  const input = document.getElementById("xmlInput")?.value;
+async function xmlAction(action) {
+  const input = document.getElementById('xmlInput')?.value;
 
   if (!input?.trim()) {
-    showError("Введите XML для обработки");
+    showError('Введите XML для обработки');
     return;
   }
 
   const options = {
-    unescape: document.getElementById("xmlUnescape")?.checked || false,
-    keepDeclaration: document.getElementById("xmlKeepDecl")?.checked || false,
-    escape: document.getElementById("xmlEscape")?.checked || false,
+    unescapeFromJson: document.getElementById('xmlUnescape')?.checked || false,
+    keepXmlDeclaration: document.getElementById('xmlKeepDecl')?.checked || false,
+    escapeForJson: document.getElementById('xmlEscape')?.checked || false
   };
 
-  clearOutput();
-
   try {
-    const result = await formatXml(action, input, options);
+    const res = await formatXML(action, input, options);
+    displayResult(res, options);
 
-    if (!result.success) {
-      showError(result.message || "Ошибка форматирования");
-      displayErrors(result.message || result.error);
-      return;
+    if (res.output) {
+      showSuccess(`XML ${action} выполнен успешно`);
     }
-
-    displayOutput(result.output || result.result || "");
-    displayStats(result.stats);
-    displayIntegrity(result.integrity);
-
-    showSuccess(`${action.toUpperCase()} выполнен`);
   } catch (error) {
-    console.error("Format error:", error);
-    showError("Ошибка форматирования");
-    displayErrors(error.message);
+    console.error('Error processing XML:', error);
+    showError('Ошибка обработки XML');
   }
 }
 
 /**
  * Отображение результата
  */
-function displayOutput(output) {
-  currentXmlOutput = output;
-  const outputEl = document.getElementById("xmlOutput");
+function displayResult(res, options) {
+  const output = res.output ?? '';
+  currentOutput = output;
+
+  const outputEl = document.getElementById('xmlOutput');
   if (outputEl) {
     outputEl.textContent = output;
   }
 
-  const btnCopy = document.getElementById("btnCopyXml");
-  const btnDownload = document.getElementById("btnDownloadXml");
-
-  if (btnCopy) btnCopy.disabled = false;
-  if (btnDownload) btnDownload.disabled = false;
-}
-
-/**
- * Отображение статистики
- */
-function displayStats(stats) {
-  if (!stats) return;
-
-  const statsEl = document.getElementById("xmlStats");
-  if (statsEl) {
-    const parts = [];
-    if (stats.elements !== undefined)
-      parts.push(`Элементов: ${stats.elements}`);
-    if (stats.attributes !== undefined)
-      parts.push(`Атрибутов: ${stats.attributes}`);
-    if (stats.originalSize !== undefined)
-      parts.push(`Исходный: ${formatBytes(stats.originalSize)}`);
-    if (stats.formattedSize !== undefined)
-      parts.push(`Форматированный: ${formatBytes(stats.formattedSize)}`);
-
-    statsEl.textContent = parts.join(" | ");
+  const statsEl = document.getElementById('xmlStats');
+  if (statsEl && res.stats) {
+    statsEl.textContent = `Вход: ${res.stats.inputBytes} B, Выход: ${res.stats.outputBytes} B, ${res.stats.durationMs} мс`;
   }
-}
 
-/**
- * Отображение информации о целостности
- */
-function displayIntegrity(integrity) {
-  if (!integrity) return;
+  const errorsEl = document.getElementById('xmlErrors');
+  if (errorsEl) {
+    errorsEl.textContent = res.errors && res.errors.length ? res.errors.join('\n') : '';
+  }
 
-  const integrityEl = document.getElementById("xmlIntegrity");
+  const integrityEl = document.getElementById('xmlIntegrity');
   if (integrityEl) {
-    const status = integrity.valid ? "✅ Валидный XML" : "❌ Невалидный XML";
-    const depth = integrity.maxDepth ? ` | Глубина: ${integrity.maxDepth}` : "";
-
-    integrityEl.textContent = `${status}${depth}`;
+    const integ = res.integrity;
+    if (integ) {
+      integrityEl.textContent = `Целостность: strict=${integ.equalStrict}, normalized=${integ.equalNormalized}, in=${integ.inputHash?.slice(0, 8)}…, out=${integ.outputHash?.slice(0, 8)}…`;
+    } else {
+      integrityEl.textContent = '';
+    }
   }
+
+  const btnCopyXml = document.getElementById('btnCopyXml');
+  const btnDownloadXml = document.getElementById('btnDownloadXml');
+
+  if (btnCopyXml) btnCopyXml.disabled = !output;
+  if (btnDownloadXml) btnDownloadXml.disabled = !output;
 }
 
 /**
- * Отображение ошибок
+ * Копирование результата
  */
-function displayErrors(errorMessage) {
-  const errorsEl = document.getElementById("xmlErrors");
-  if (errorsEl) {
-    errorsEl.textContent = errorMessage;
-    errorsEl.style.display = "block";
-  }
+function copyOutput() {
+  if (!currentOutput) return;
+
+  navigator.clipboard.writeText(currentOutput)
+    .then(() => {
+      showSuccess('XML скопирован в буфер обмена');
+    })
+    .catch(err => {
+      console.error('Failed to copy:', err);
+      showError('Ошибка копирования');
+    });
 }
 
 /**
- * Очистка вывода
+ * Скачивание результата
  */
-function clearOutput() {
-  currentXmlOutput = "";
+function downloadOutput() {
+  if (!currentOutput) return;
 
-  setText("xmlOutput", "");
-  setText("xmlStats", "");
-  setText("xmlIntegrity", "");
-  setText("xmlErrors", "");
-
-  const errorsEl = document.getElementById("xmlErrors");
-  if (errorsEl) {
-    errorsEl.style.display = "none";
-  }
-
-  const btnCopy = document.getElementById("btnCopyXml");
-  const btnDownload = document.getElementById("btnDownloadXml");
-
-  if (btnCopy) btnCopy.disabled = true;
-  if (btnDownload) btnDownload.disabled = true;
+  const escapeForJson = document.getElementById('xmlEscape')?.checked;
+  const filename = escapeForJson ? 'result.txt' : 'result.xml';
+  
+  downloadText(currentOutput, filename);
+  showSuccess('Файл загружен');
 }
+
+console.log('✅ XML module loaded');

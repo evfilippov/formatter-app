@@ -1,4 +1,0 @@
-./app.js
-./index.html
-./structure.txt
-./styles.css

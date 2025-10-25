@@ -1,108 +1,143 @@
 // ============================================
-// LOGS - ГЛАВНЫЙ МОДУЛЬ
+// LOGS MODULE - MAIN
 // ============================================
 
+import { normalizeLogsAPI } from "../../core/api.js";
+import { setText, downloadText, debounce } from "../../core/utils.js";
 import {
-  postJson,
-  downloadText,
-  copyToClipboard,
-  setText,
-  debounce,
-} from "../../core/utils.js";
-import {
-  showNotification,
   showSuccess,
   showError,
+  showWarning,
+  showInfo,
 } from "../../components/notification.js";
-import { openModal, closeModal } from "../../components/modal.js";
+import { initLogsUI, renderLogItems, updateChart } from "./logsUI.js";
 import {
-  renderLogItems,
-  updateChart,
-  updateStats,
-  toggleCard,
-  collapseAllCards,
-  expandAllCards,
-  jumpToMessage,
-} from "./logsUI.js";
-import {
-  filterItems,
-  sortItems,
+  initLogsSearch,
+  searchLogs as performSearch,
   updateSearchCounter,
-  addToSearchHistory,
-  highlightText,
-  updateSearchHistoryUI,
+  updateSearchHistory,
 } from "./logsSearch.js";
 import {
   loadFromLocalStorage,
   saveToLocalStorage,
-  clearLocalStorage,
   loadSettings,
-  applySettings,
-  initAutoSave,
-  getCurrentSettings,
+  saveSettings,
 } from "./logsStorage.js";
 
-// Состояние модуля
-let allLogItems = [];
-let filteredItems = [];
-let selectedItems = new Set();
-let starredItems = new Set();
-let compareItems = [];
+// ============================================
+// СОСТОЯНИЕ МОДУЛЯ
+// ============================================
+export let allLogItems = [];
+export let filteredItems = [];
+export let searchHistory = [];
+export let selectedItems = new Set();
+export let starredItems = new Set();
+let initialized = false;
 
-/**
- * Инициализация модуля логов
- */
+// ============================================
+// ИНИЦИАЛИЗАЦИЯ
+// ============================================
 export function initLogs() {
-  console.log("🚀 Logs Module: Initializing...");
+  if (initialized) {
+    console.log("📋 Logs already initialized");
+    return;
+  }
 
-  // Загружаем настройки
-  const settings = loadSettings();
-  applySettings(settings);
+  console.log("📋 Logs module initializing...");
 
-  // Инициализируем обработчики событий
-  initEventListeners();
+  try {
+    // Инициализация UI
+    initLogsUI();
 
-  // Инициализируем автосохранение
-  initAutoSave(handleAutoSave);
+    // Инициализация поиска
+    initLogsSearch();
 
-  // Загружаем данные из localStorage
-  loadSavedData();
+    // Загрузка настроек
+    loadSettings();
 
-  console.log("✅ Logs Module: Ready");
+    // Загрузка данных из localStorage
+    const saved = loadFromLocalStorage();
+    if (saved && saved.items && saved.items.length > 0) {
+      document.getElementById("logsInput").value = saved.input || "";
+      allLogItems = saved.items || [];
+      starredItems = new Set(saved.starred || []);
+      searchHistory = saved.searchHistory || [];
+      filteredItems = allLogItems;
+      renderLogItems(filteredItems, allLogItems, selectedItems, starredItems);
+      updateSearchHistory(searchHistory);
+      showSuccess("Данные восстановлены из автосохранения");
+    }
+
+    // Привязка обработчиков
+    attachEventListeners();
+
+    // Автосохранение каждые 30 секунд
+    setInterval(() => {
+      if (
+        allLogItems.length > 0 &&
+        document.getElementById("autoSave")?.checked
+      ) {
+        saveToLocalStorage({
+          input: document.getElementById("logsInput").value,
+          items: allLogItems,
+          starred: Array.from(starredItems),
+          searchHistory,
+        });
+      }
+    }, 30000);
+
+    initialized = true;
+    console.log("✅ Logs module initialized");
+  } catch (error) {
+    console.error("❌ Logs initialization failed:", error);
+  }
 }
 
-/**
- * Инициализация обработчиков событий
- */
-function initEventListeners() {
+// ============================================
+// ОБРАБОТЧИКИ СОБЫТИЙ
+// ============================================
+function attachEventListeners() {
   // Поиск
   const searchInput = document.getElementById("logsSearch");
   if (searchInput) {
-    searchInput.addEventListener("input", debounce(handleSearch, 300));
+    searchInput.addEventListener(
+      "input",
+      debounce(() => {
+        performSearch(allLogItems, selectedItems, starredItems);
+      }, 300)
+    );
   }
 
   // Фильтры
-  const filterSelect = document.getElementById("logsFilter");
-  if (filterSelect) {
-    filterSelect.addEventListener("change", handleSearch);
+  const filter = document.getElementById("logsFilter");
+  if (filter) {
+    filter.addEventListener("change", () => {
+      performSearch(allLogItems, selectedItems, starredItems);
+    });
   }
 
   // Сортировка
-  const sortSelect = document.getElementById("logsSort");
-  if (sortSelect) {
-    sortSelect.addEventListener("change", handleSearch);
+  const sort = document.getElementById("logsSort");
+  if (sort) {
+    sort.addEventListener("change", () => {
+      performSearch(allLogItems, selectedItems, starredItems);
+    });
   }
 
-  // Подсветка поиска
-  const highlightCheckbox = document.getElementById("highlightSearch");
-  if (highlightCheckbox) {
-    highlightCheckbox.addEventListener("change", handleSearch);
+  // Подсветка
+  const highlight = document.getElementById("highlightSearch");
+  if (highlight) {
+    highlight.addEventListener("change", () => {
+      performSearch(allLogItems, selectedItems, starredItems);
+    });
   }
 
   // Regex режим
-  const regexCheckbox = document.getElementById("regexMode");
-  if (regexCheckbox) {
-    regexCheckbox.addEventListener("change", handleSearch);
+  const regex = document.getElementById("regexMode");
+  if (regex) {
+    regex.addEventListener("change", () => {
+      performSearch(allLogItems, selectedItems, starredItems);
+    });
   }
 
   // Загрузка файла
@@ -123,11 +158,14 @@ function initEventListeners() {
     btnReset.addEventListener("click", handleReset);
   }
 
-  // Кнопки управления
+  // Кнопки управления карточками
   const btnCollapseAll = document.getElementById("btnCollapseAll");
   if (btnCollapseAll) {
     btnCollapseAll.addEventListener("click", () => {
-      collapseAllCards();
+      document.querySelectorAll(".item-card").forEach((card) => {
+        card.classList.add("collapsed");
+        card.classList.remove("expanded");
+      });
       showSuccess("Все карточки свернуты");
     });
   }
@@ -135,113 +173,44 @@ function initEventListeners() {
   const btnExpandAll = document.getElementById("btnExpandAll");
   if (btnExpandAll) {
     btnExpandAll.addEventListener("click", () => {
-      expandAllCards();
+      document.querySelectorAll(".item-card").forEach((card) => {
+        card.classList.remove("collapsed");
+        card.classList.add("expanded");
+      });
       showSuccess("Все карточки развернуты");
     });
   }
 
-  // Кнопки экспорта
+  // Экспорт выбранных
   const btnExportSelected = document.getElementById("btnExportSelected");
   if (btnExportSelected) {
-    btnExportSelected.addEventListener("click", handleExportSelected);
+    btnExportSelected.addEventListener("click", exportSelected);
   }
 
+  // Сравнение
   const btnCompare = document.getElementById("btnCompare");
   if (btnCompare) {
-    btnCompare.addEventListener("click", handleCompare);
+    btnCompare.addEventListener("click", compareSelected);
   }
 
-  const btnDownload = document.getElementById("btnDownload");
-  if (btnDownload) {
-    btnDownload.addEventListener("click", handleDownloadAll);
-  }
-
-  const btnCopyExport = document.getElementById("btnCopyExport");
-  if (btnCopyExport) {
-    btnCopyExport.addEventListener("click", handleCopyExport);
-  }
-
-  // Делегирование событий для карточек
-  const logsItems = document.getElementById("logsItems");
-  if (logsItems) {
-    logsItems.addEventListener("click", handleItemAction);
-  }
-
-  // Модальное окно сравнения
-  const btnCloseCompare = document.getElementById("btnCloseCompare");
-  if (btnCloseCompare) {
-    btnCloseCompare.addEventListener("click", () => closeModal("compareModal"));
-  }
-
-  // Горячие клавиши
-  document.addEventListener("keydown", handleHotkeys);
+  // Настройки
+  ["autoSave", "highlightSearch", "regexMode"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("change", () => {
+        saveSettings({
+          autoSave: document.getElementById("autoSave")?.checked,
+          highlightSearch: document.getElementById("highlightSearch")?.checked,
+          regexMode: document.getElementById("regexMode")?.checked,
+        });
+      });
+    }
+  });
 }
 
-/**
- * Обработка действий на карточках (делегирование)
- */
-function handleItemAction(e) {
-  const target = e.target.closest("[data-action]");
-  if (!target) return;
-
-  const action = target.dataset.action;
-  const number = parseInt(target.dataset.number);
-
-  e.stopPropagation();
-
-  switch (action) {
-    case "toggle":
-      toggleCard(number);
-      break;
-    case "select":
-      handleSelection(number);
-      break;
-    case "star":
-      handleStar(number);
-      break;
-    case "copy-json":
-      handleCopyJson(number);
-      break;
-    case "copy-block":
-      handleCopyBlock(number);
-      break;
-    case "download":
-      handleDownloadItem(number);
-      break;
-    case "compare":
-      handleAddToCompare(number);
-      break;
-  }
-}
-
-/**
- * Обработка поиска и фильтрации
- */
-function handleSearch() {
-  const searchTerm = document.getElementById("logsSearch")?.value.trim() || "";
-  const filterType = document.getElementById("logsFilter")?.value || "all";
-  const sortBy = document.getElementById("logsSort")?.value || "number";
-
-  // Фильтрация
-  filteredItems = filterItems(allLogItems, searchTerm, filterType);
-
-  // Сортировка
-  filteredItems = sortItems(filteredItems, sortBy);
-
-  // Обновление UI
-  updateSearchCounter(filteredItems.length, allLogItems.length);
-  renderLogItems(filteredItems, selectedItems, starredItems, searchTerm);
-  updateChart(filteredItems);
-
-  // Добавление в историю
-  if (searchTerm) {
-    addToSearchHistory(searchTerm);
-  }
-}
-
-/**
- * Обработка загрузки файла
- */
+// ============================================
+// ОБРАБОТКА ФАЙЛОВ
+// ============================================
 async function handleFileUpload(e) {
   const file = e.target.files[0];
   const info = document.getElementById("logsFileInfo");
@@ -251,8 +220,15 @@ async function handleFileUpload(e) {
     return;
   }
 
+  const formatBytes = (bytes) => {
+    if (!bytes) return "0 B";
+    const sizes = ["B", "KB", "MB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + " " + sizes[i];
+  };
+
   if (info) {
-    info.textContent = `${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+    info.textContent = `${file.name} (${formatBytes(file.size)})`;
   }
 
   const text = await file.text();
@@ -264,9 +240,9 @@ async function handleFileUpload(e) {
   showSuccess("Файл загружен успешно");
 }
 
-/**
- * Обработка нормализации логов
- */
+// ============================================
+// НОРМАЛИЗАЦИЯ ЛОГОВ
+// ============================================
 async function handleNormalize() {
   const input = document.getElementById("logsInput")?.value;
 
@@ -285,28 +261,50 @@ async function handleNormalize() {
     10
   );
 
-  try {
-    const result = await postJson("/api/logs/normalize", {
-      input,
-      replaceEscapedNewlines,
-      enabledPatterns: patterns,
-      minAfterColonLength,
-    });
+  const body = {
+    input,
+    replaceEscapedNewlines,
+    enabledPatterns: patterns,
+    minAfterColonLength,
+  };
 
-    if (!result.success) {
-      showError(result.message || "Ошибка обработки данных");
-      return;
+  try {
+    const res = await normalizeLogsAPI(body);
+
+    // Статистика
+    setText(
+      "logsStats",
+      `📊 Записей: ${res.stats.totalEntries} | ✅ Извлечено: ${res.stats.extracted} | ` +
+        `🎯 Уникальных: ${res.stats.unique} | 📑 Дубликатов: ${res.stats.duplicates} | ` +
+        `⏱️ ${res.stats.durationMs} мс`
+    );
+
+    // Экспорт
+    const exportText = res.export?.asText || "";
+    const btnDownload = document.getElementById("btnDownload");
+    const btnCopyExport = document.getElementById("btnCopyExport");
+
+    if (btnDownload) {
+      btnDownload.disabled = !exportText;
+      btnDownload.onclick = () =>
+        downloadText(exportText, res.export?.filename || "output.json");
     }
 
-    const data = result.data;
+    if (btnCopyExport) {
+      btnCopyExport.disabled = !exportText;
+      btnCopyExport.onclick = () => {
+        navigator.clipboard.writeText(exportText);
+        showSuccess("Отчет скопирован в буфер обмена");
+      };
+    }
 
-    // Обновляем статистику
-    updateStats(data.stats);
+    // Обработка элементов
+    const showOnlyUnique = document.getElementById("showOnlyUnique")?.checked;
+    const showDuplicates = document.getElementById("showDuplicates")?.checked;
 
-    // Обновляем данные
-    allLogItems = data.items || [];
+    allLogItems = res.items || [];
 
-    // Добавляем level из raw JSON
+    // Парсинг уровня логов
     allLogItems.forEach((item) => {
       try {
         const logData = JSON.parse(item.raw || "{}");
@@ -317,41 +315,21 @@ async function handleNormalize() {
       }
     });
 
-    // Применяем фильтры
-    const showOnlyUnique = document.getElementById("showOnlyUnique")?.checked;
-    const showDuplicates = document.getElementById("showDuplicates")?.checked;
-
+    // Фильтрация дубликатов
     filteredItems = allLogItems.filter((item) => {
       const isDup = item.duplicateOf !== null && item.duplicateOf !== undefined;
       if (showOnlyUnique && isDup && !showDuplicates) return false;
       return true;
     });
 
-    // Обновляем UI
-    handleSearch();
+    performSearch(allLogItems, selectedItems, starredItems);
 
-    // Кнопки экспорта
-    const exportText = data.export?.asText || "";
-    const btnDownload = document.getElementById("btnDownload");
-    const btnCopyExport = document.getElementById("btnCopyExport");
-
-    if (btnDownload) {
-      btnDownload.disabled = !exportText;
-      btnDownload.onclick = () =>
-        downloadText(exportText, data.export?.filename || "output.json");
-    }
-
-    if (btnCopyExport) {
-      btnCopyExport.disabled = !exportText;
-      btnCopyExport.onclick = async () => {
-        if (await copyToClipboard(exportText)) {
-          showSuccess("Отчет скопирован в буфер обмена");
-        }
-      };
-    }
-
-    // Автосохранение
-    handleAutoSave();
+    saveToLocalStorage({
+      input,
+      items: allLogItems,
+      starred: Array.from(starredItems),
+      searchHistory,
+    });
 
     showSuccess(`Обработано ${allLogItems.length} сообщений`);
   } catch (error) {
@@ -360,190 +338,10 @@ async function handleNormalize() {
   }
 }
 
-/**
- * Обработка выбора элемента
- */
-function handleSelection(number) {
-  if (selectedItems.has(number)) {
-    selectedItems.delete(number);
-  } else {
-    selectedItems.add(number);
-  }
-
-  const card = document.querySelector(
-    `.item-card[data-item-number="${number}"]`
-  );
-  if (card) {
-    card.classList.toggle("selected");
-  }
-
-  updateExportButtons();
-}
-
-/**
- * Обработка звёздочки (избранное)
- */
-function handleStar(number) {
-  if (starredItems.has(number)) {
-    starredItems.delete(number);
-  } else {
-    starredItems.add(number);
-  }
-
-  renderLogItems(
-    filteredItems,
-    selectedItems,
-    starredItems,
-    document.getElementById("logsSearch")?.value || ""
-  );
-  handleAutoSave();
-}
-
-/**
- * Копирование JSON
- */
-async function handleCopyJson(number) {
-  const item = allLogItems.find((i) => i.number === number);
-  if (item && (await copyToClipboard(item.pretty || ""))) {
-    showSuccess("JSON скопирован в буфер обмена");
-  }
-}
-
-/**
- * Копирование блока
- */
-async function handleCopyBlock(number) {
-  const item = allLogItems.find((i) => i.number === number);
-  if (item) {
-    const separator = buildSeparator(
-      item.number,
-      item.key,
-      item.description,
-      true
-    );
-    if (await copyToClipboard(separator + item.pretty)) {
-      showSuccess("Блок скопирован в буфер обмена");
-    }
-  }
-}
-
-/**
- * Скачивание элемента
- */
-function handleDownloadItem(number) {
-  const item = allLogItems.find((i) => i.number === number);
-  if (item) {
-    downloadText(item.pretty || "", `message-${item.number}.json`);
-  }
-}
-
-/**
- * Добавление в сравнение
- */
-function handleAddToCompare(number) {
-  const item = allLogItems.find((i) => i.number === number);
-  if (!item) return;
-
-  compareItems.push(item);
-
-  if (compareItems.length >= 2) {
-    openCompareModal();
-  } else {
-    showInfo("Выберите второй элемент для сравнения");
-  }
-}
-
-/**
- * Открытие модального окна сравнения
- */
-function openCompareModal() {
-  if (compareItems.length < 2) return;
-
-  setText(
-    "compareTitle1",
-    `Сообщение ${compareItems[0].number}: ${compareItems[0].key}`
-  );
-  setText("compareContent1", compareItems[0].pretty);
-
-  setText(
-    "compareTitle2",
-    `Сообщение ${compareItems[1].number}: ${compareItems[1].key}`
-  );
-  setText("compareContent2", compareItems[1].pretty);
-
-  openModal("compareModal");
-  compareItems = [];
-}
-
-/**
- * Экспорт выбранных
- */
-function handleExportSelected() {
-  const selected = allLogItems.filter((item) => selectedItems.has(item.number));
-  if (selected.length > 0) {
-    const exportData = selected.map((item) => item.pretty).join("\n\n");
-    downloadText(exportData, `selected-messages-${Date.now()}.json`);
-    showSuccess(`Экспортировано ${selected.length} сообщений`);
-  }
-}
-
-/**
- * Сравнение выбранных
- */
-function handleCompare() {
-  const selected = Array.from(selectedItems).slice(0, 2);
-  if (selected.length === 2) {
-    compareItems = selected.map((num) =>
-      allLogItems.find((i) => i.number === num)
-    );
-    openCompareModal();
-  }
-}
-
-/**
- * Скачать всё
- */
-function handleDownloadAll() {
-  const btn = document.getElementById("btnDownload");
-  if (btn && btn.onclick) {
-    btn.onclick();
-  }
-}
-
-/**
- * Копировать экспорт
- */
-function handleCopyExport() {
-  const btn = document.getElementById("btnCopyExport");
-  if (btn && btn.onclick) {
-    btn.onclick();
-  }
-}
-
-/**
- * Обновление кнопок экспорта
- */
-function updateExportButtons() {
-  const btnExportSelected = document.getElementById("btnExportSelected");
-  const btnCompare = document.getElementById("btnCompare");
-
-  if (btnExportSelected) {
-    btnExportSelected.disabled = selectedItems.size === 0;
-  }
-
-  if (btnCompare) {
-    btnCompare.disabled = selectedItems.size !== 2;
-  }
-}
-
-/**
- * Сброс всех данных
- */
+// ============================================
+// СБРОС
+// ============================================
 function handleReset() {
-  if (!confirm("Вы уверены, что хотите очистить все данные?")) {
-    return;
-  }
-
   document.getElementById("logsInput").value = "";
   document.getElementById("logsFile").value = "";
   document.getElementById("logsSearch").value = "";
@@ -565,92 +363,166 @@ function handleReset() {
   filteredItems = [];
   selectedItems.clear();
   starredItems.clear();
+  searchHistory = [];
 
-  updateSearchHistoryUI();
-  updateChart([]);
+  if (document.getElementById("autoSave")?.checked) {
+    localStorage.removeItem("logsData");
+  }
+
+  updateSearchHistory([]);
+  updateChart([], []);
   updateSearchCounter(0, 0);
-
-  clearLocalStorage();
 
   showSuccess("Все данные очищены");
 }
 
-/**
- * Автосохранение
- */
-function handleAutoSave() {
-  const data = {
-    input: document.getElementById("logsInput")?.value || "",
+// ============================================
+// ЭКСПОРТ ВЫБРАННЫХ
+// ============================================
+function exportSelected() {
+  const selected = allLogItems.filter((item) => selectedItems.has(item.number));
+  if (selected.length > 0) {
+    const exportData = selected.map((item) => item.pretty).join("\n\n");
+    downloadText(exportData, `selected-messages-${Date.now()}.json`);
+    showSuccess(`Экспортировано ${selected.length} сообщений`);
+  }
+}
+
+// ============================================
+// СРАВНЕНИЕ
+// ============================================
+function compareSelected() {
+  const selected = Array.from(selectedItems).slice(0, 2);
+  if (selected.length === 2) {
+    const items = selected.map((num) =>
+      allLogItems.find((i) => i.number === num)
+    );
+    openCompareModal(items);
+  }
+}
+
+function openCompareModal(items) {
+  const modal = document.getElementById("compareModal");
+  if (!modal || items.length < 2) return;
+
+  document.getElementById(
+    "compareTitle1"
+  ).textContent = `Сообщение ${items[0].number}: ${items[0].key}`;
+  document.getElementById("compareContent1").textContent = items[0].pretty;
+
+  document.getElementById(
+    "compareTitle2"
+  ).textContent = `Сообщение ${items[1].number}: ${items[1].key}`;
+  document.getElementById("compareContent2").textContent = items[1].pretty;
+
+  modal.classList.remove("hidden");
+}
+
+// ============================================
+// ЭКСПОРТ ДЛЯ ГЛОБАЛЬНЫХ ФУНКЦИЙ
+// ============================================
+export function toggleCard(number) {
+  const card = document.querySelector(
+    `.item-card[data-item-number="${number}"]`
+  );
+  if (card) {
+    card.classList.toggle("collapsed");
+    card.classList.toggle("expanded");
+  }
+}
+
+export function toggleSelection(number) {
+  if (selectedItems.has(number)) {
+    selectedItems.delete(number);
+  } else {
+    selectedItems.add(number);
+  }
+
+  const card = document.querySelector(
+    `.item-card[data-item-number="${number}"]`
+  );
+  if (card) {
+    card.classList.toggle("selected");
+  }
+
+  updateExportButtons();
+}
+
+export function toggleStar(number) {
+  if (starredItems.has(number)) {
+    starredItems.delete(number);
+  } else {
+    starredItems.add(number);
+  }
+  renderLogItems(filteredItems, allLogItems, selectedItems, starredItems);
+  saveToLocalStorage({
+    input: document.getElementById("logsInput").value,
     items: allLogItems,
     starred: Array.from(starredItems),
-    searchHistory: [],
-  };
+    searchHistory,
+  });
+}
 
-  if (saveToLocalStorage(data)) {
-    console.log("💾 Auto-saved");
+function updateExportButtons() {
+  const btnExportSelected = document.getElementById("btnExportSelected");
+  const btnCompare = document.getElementById("btnCompare");
+
+  if (btnExportSelected) {
+    btnExportSelected.disabled = selectedItems.size === 0;
+  }
+
+  if (btnCompare) {
+    btnCompare.disabled = selectedItems.size !== 2;
   }
 }
 
-/**
- * Загрузка сохранённых данных
- */
-function loadSavedData() {
-  const saved = loadFromLocalStorage();
-  if (saved && saved.items && saved.items.length > 0) {
-    const input = document.getElementById("logsInput");
-    if (input) {
-      input.value = saved.input || "";
-    }
-
-    allLogItems = saved.items || [];
-    starredItems = new Set(saved.starred || []);
-
-    filteredItems = allLogItems;
-    renderLogItems(filteredItems, selectedItems, starredItems);
-    updateSearchHistoryUI();
-
-    showSuccess("Данные восстановлены из автосохранения");
+export function copyJson(number) {
+  const item = allLogItems.find((i) => i.number === number);
+  if (item) {
+    navigator.clipboard.writeText(item.pretty || "");
+    showSuccess("JSON скопирован в буфер обмена");
   }
 }
 
-/**
- * Горячие клавиши
- */
-function handleHotkeys(e) {
-  // Ctrl+F - фокус на поиск
-  if ((e.ctrlKey || e.metaKey) && e.key === "f") {
-    e.preventDefault();
-    document.getElementById("logsSearch")?.focus();
-  }
-
-  // Ctrl+G - переход к сообщению
-  if ((e.ctrlKey || e.metaKey) && e.key === "g") {
-    e.preventDefault();
-    const number = prompt("Введите номер сообщения:");
-    if (number) {
-      const num = parseInt(number, 10);
-      if (jumpToMessage(num)) {
-        showSuccess(`Переход к сообщению №${num}`);
-      } else {
-        showError(`Сообщение №${num} не найдено`);
-      }
-    }
-  }
-
-  // Ctrl+K - очистка фильтров
-  if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-    e.preventDefault();
-    document.getElementById("logsSearch").value = "";
-    document.getElementById("logsFilter").value = "all";
-    document.getElementById("logsSort").value = "number";
-    handleSearch();
-    showSuccess("Фильтры очищены");
+export function copyBlock(number) {
+  const item = allLogItems.find((i) => i.number === number);
+  if (item) {
+    const sep = buildSeparator(item.number, item.key, item.description, true);
+    navigator.clipboard.writeText(sep + item.pretty);
+    showSuccess("Блок скопирован в буфер обмена");
   }
 }
 
-/**
- * Построение разделителя
- */
+export function downloadItem(number) {
+  const item = allLogItems.find((i) => i.number === number);
+  if (item) {
+    downloadText(item.pretty || "", `message-${item.number}.json`);
+  }
+}
+
+export function addToCompare(number) {
+  const item = allLogItems.find((i) => i.number === number);
+  if (!item) return;
+
+  const compareItems = window.compareItems || [];
+  compareItems.push(item);
+  window.compareItems = compareItems;
+
+  if (compareItems.length >= 2) {
+    openCompareModal(compareItems);
+    window.compareItems = [];
+  } else {
+    showInfo("Выберите второй элемент для сравнения");
+  }
+}
+
+export function closeCompareModal() {
+  const modal = document.getElementById("compareModal");
+  if (modal) {
+    modal.classList.add("hidden");
+  }
+}
+
 function buildSeparator(number, key, description, first) {
   const line = "/".repeat(70) + "\n";
   let s = "";
@@ -669,9 +541,3 @@ function buildSeparator(number, key, description, first) {
   }
   return s;
 }
-
-// Экспорт для глобального доступа (для обратной совместимости)
-window.logsModule = {
-  toggleCard,
-  jumpToMessage,
-};

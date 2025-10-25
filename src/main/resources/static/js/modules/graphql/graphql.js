@@ -1,5 +1,5 @@
 // ============================================
-// GRAPHQL - СЛИЯНИЕ СХЕМ
+// GRAPHQL MODULE - MAIN
 // ============================================
 
 import { mergeGraphQL } from "../../core/api.js";
@@ -12,12 +12,80 @@ import {
 
 let mergeInputCount = 2;
 let currentMergedResult = "";
+let initialized = false;
+
+/**
+ * Главная функция инициализации GraphQL модуля
+ */
+export function initGraphQL() {
+  if (initialized) {
+    console.log("��� GraphQL already initialized");
+    return;
+  }
+
+  console.log("��� GraphQL module initializing...");
+
+  try {
+    // Инициализация табов
+    initTabs();
+
+    // Инициализация под-модулей
+    initMergeTab();
+    // initFormatTab();  // TODO: добавьте позже
+    // initSchemaTab();  // TODO: добавьте позже
+
+    initialized = true;
+    console.log("✅ GraphQL module initialized");
+  } catch (error) {
+    console.error("❌ GraphQL initialization failed:", error);
+  }
+}
+
+/**
+ * Инициализация табов GraphQL
+ */
+function initTabs() {
+  const tabButtons = document.querySelectorAll(".graphql-tabs .tab-btn");
+
+  tabButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tabName = btn.dataset.tab;
+      switchTab(tabName);
+    });
+  });
+}
+
+/**
+ * Переключение между табами
+ */
+function switchTab(tabName) {
+  console.log("��� GraphQL: Switching to tab:", tabName);
+
+  // Убираем active у всех кнопок
+  document.querySelectorAll(".graphql-tabs .tab-btn").forEach((btn) => {
+    btn.classList.remove("active");
+  });
+
+  // Скрываем все табы
+  document.querySelectorAll(".graphql-tab").forEach((tab) => {
+    tab.classList.add("hidden");
+  });
+
+  // Показываем выбранный таб
+  const targetTab = document.getElementById(`graphql-${tabName}`);
+  const targetBtn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+
+  if (targetTab && targetBtn) {
+    targetTab.classList.remove("hidden");
+    targetBtn.classList.add("active");
+  }
+}
 
 /**
  * Инициализация табы Merge
  */
 export function initMergeTab() {
-  console.log("🔀 GraphQL Merge: Initializing...");
+  console.log("��� GraphQL Merge: Initializing...");
 
   const btnAddMergeInput = document.getElementById("btnAddMergeInput");
   const btnPerformMerge = document.getElementById("btnPerformMerge");
@@ -66,7 +134,7 @@ export function addMergeInput() {
       <h4>Schema/Query ${index + 1}</h4>
       <button data-clear-merge="${index}" class="btn-small">Clear</button>
     </div>
-    <textarea id="mergeInput${index}" class="code-editor merge-textarea" 
+    <textarea id="mergeInput${index}" class="code-editor merge-textarea"
               placeholder="Schema or query ${index + 1}..."></textarea>
   `;
 

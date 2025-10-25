@@ -1,232 +1,155 @@
 // ============================================
-// LOGS - UI И РЕНДЕРИНГ
+// LOGS UI - RENDERING
 // ============================================
 
-import {
-  formatBytes,
-  formatJsonWithLineNumbers,
-  escapeHtml,
-} from "../../core/utils.js";
-import { highlightText } from "./logsSearch.js";
+import { highlightText } from '../../core/utils.js';
 
 /**
- * Рендеринг элементов логов
+ * Инициализация UI компонентов
  */
-export function renderLogItems(
-  items,
-  selectedItems,
-  starredItems,
-  searchTerm = ""
-) {
-  const itemsDiv = document.getElementById("logsItems");
+export function initLogsUI() {
+  console.log('��� Logs UI initializing...');
+  // Дополнительная инициализация UI при необходимости
+}
+
+/**
+ * Рендеринг карточек логов
+ */
+export function renderLogItems(filteredItems, allLogItems, selectedItems, starredItems) {
+  const itemsDiv = document.getElementById('logsItems');
   if (!itemsDiv) return;
 
-  itemsDiv.innerHTML = "";
+  itemsDiv.innerHTML = '';
+  const searchTerm = document.getElementById('logsSearch')?.value.trim() || '';
 
-  items.forEach((item) => {
-    const div = document.createElement("div");
-    div.className = "item-card expanded";
+  filteredItems.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'item-card expanded';
     div.dataset.itemNumber = item.number;
 
     const isDup = item.duplicateOf !== null && item.duplicateOf !== undefined;
     const isSelected = selectedItems.has(item.number);
     const isStarred = starredItems.has(item.number);
-    const level = item.level?.toLowerCase() || "info";
+    const level = item.level?.toLowerCase() || 'info';
 
-    if (isSelected) div.classList.add("selected");
+    if (isSelected) div.classList.add('selected');
     div.classList.add(`log-level-${level}`);
 
-    let timestamp = "";
+    let timestamp = '';
     try {
-      const logData = JSON.parse(item.raw || "{}");
-      timestamp = logData.timestamp || "";
+      const logData = JSON.parse(item.raw || '{}');
+      timestamp = logData.timestamp || '';
     } catch (e) {
-      timestamp = item.timestamp || "";
+      timestamp = item.timestamp || '';
     }
 
     div.innerHTML = `
-      <div class="item-header" data-action="toggle" data-number="${
-        item.number
-      }">
+      <div class="item-header" onclick="window.toggleCard(${item.number})">
         <div class="item-header-left">
           <input type="checkbox" class="item-checkbox" 
-                 data-action="select" data-number="${item.number}"
-                 ${isSelected ? "checked" : ""}>
+                 onclick="event.stopPropagation(); window.toggleSelection(${item.number})"
+                 ${isSelected ? 'checked' : ''}>
           <div class="item-title">
             <span class="item-type-icon ${item.key?.toLowerCase()}"></span>
-            СООБЩЕНИЕ ${item.number}: ${highlightText(
-      item.key?.toUpperCase() || "",
-      searchTerm
-    )}
+            СООБЩЕНИЕ ${item.number}: ${highlightText(item.key?.toUpperCase() || '', searchTerm)}
           </div>
           <span class="badge" title="Hash: ${item.hash}">
             ${item.hash?.slice(0, 8)}…
           </span>
-          ${
-            isDup
-              ? `<span class="badge dup">Дубликат №${item.duplicateOf}</span>`
-              : ""
-          }
+          ${isDup ? `<span class="badge dup">Дубликат №${item.duplicateOf}</span>` : ''}
         </div>
         <div class="item-header-right">
-          <span class="badge" title="Строк">📝 ${item.lines}</span>
-          <span class="badge" title="Размер">📦 ${formatBytes(
-            item.rawLength
-          )}</span>
+          <span class="badge" title="Строк">��� ${item.lines}</span>
+          <span class="badge" title="Размер">��� ${formatBytes(item.rawLength)}</span>
           <span class="item-toggle">▼</span>
         </div>
       </div>
       
       <div class="item-meta">
-        ${
-          timestamp
-            ? `<span>⏰ ${new Date(timestamp).toLocaleString("ru-RU")}</span>`
-            : ""
-        }
-        <span>📊 Значений: ${item.valueCount}</span>
-        <span>🔤 Сырой размер: ${item.rawLength} байт</span>
+        ${timestamp ? `<span>⏰ ${new Date(timestamp).toLocaleString('ru-RU')}</span>` : ''}
+        <span>��� Значений: ${item.valueCount}</span>
+        <span>��� Сырой размер: ${item.rawLength} байт</span>
       </div>
       
       <div class="item-content">
-        ${
-          item.description
-            ? `
+        ${item.description ? `
           <div class="item-description">
             ${highlightText(item.description, searchTerm)}
           </div>
-        `
-            : ""
-        }
+        ` : ''}
         <pre class="output line-numbers">${formatJsonWithLineNumbers(
-          highlightText(item.pretty || "", searchTerm)
+          highlightText(item.pretty || '', searchTerm)
         )}</pre>
       </div>
       
       <div class="buttons">
-        <button data-action="copy-json" data-number="${
-          item.number
-        }">📋 Копировать JSON</button>
-        <button data-action="copy-block" data-number="${
-          item.number
-        }">📄 Копировать блок</button>
-        <button data-action="download" data-number="${
-          item.number
-        }">💾 Скачать</button>
-        <button data-action="compare" data-number="${
-          item.number
-        }" class="secondary">🔍 Сравнить</button>
+        <button onclick="window.copyJson(${item.number})">��� Копировать JSON</button>
+        <button onclick="window.copyBlock(${item.number})">��� Копировать блок</button>
+        <button onclick="window.downloadItem(${item.number})">��� Скачать</button>
+        <button onclick="window.addToCompare(${item.number})" class="secondary">��� Сравнить</button>
       </div>
       
-      <span class="item-star ${isStarred ? "starred" : ""}" 
-            data-action="star" data-number="${item.number}"
-            title="${
-              isStarred ? "Убрать из избранного" : "Добавить в избранное"
-            }">
-        ${isStarred ? "⭐" : "☆"}
+      <span class="item-star ${isStarred ? 'starred' : ''}" 
+            onclick="window.toggleStar(${item.number})"
+            title="${isStarred ? 'Убрать из избранного' : 'Добавить в избранное'}">
+        ${isStarred ? '⭐' : '☆'}
       </span>
     `;
 
     itemsDiv.appendChild(div);
   });
 
-  console.log(`✅ Rendered ${items.length} log items`);
+  updateChart(filteredItems, allLogItems);
 }
 
 /**
- * Обновление графика типов сообщений
+ * Форматирование байтов
  */
-export function updateChart(items) {
-  const chart = document.getElementById("logsChart");
+function formatBytes(bytes) {
+  if (!bytes) return '0 B';
+  const sizes = ['B', 'KB', 'MB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i];
+}
+
+/**
+ * Форматирование JSON с номерами строк
+ */
+function formatJsonWithLineNumbers(json) {
+  const lines = json.split('\n');
+  return lines.map(line => `<span class="line">${line}</span>`).join('\n');
+}
+
+/**
+ * Обновление графика
+ */
+export function updateChart(filteredItems, allLogItems) {
+  const chart = document.getElementById('logsChart');
   if (!chart) return;
 
   const types = {};
-  items.forEach((item) => {
-    const type = item.key?.split("_")[0]?.toLowerCase() || "other";
+  filteredItems.forEach(item => {
+    const type = item.key?.split('_')[0]?.toLowerCase() || 'other';
     types[type] = (types[type] || 0) + 1;
   });
 
   if (Object.keys(types).length > 0) {
-    chart.classList.add("active");
-    chart.innerHTML = "";
+    chart.classList.add('active');
+    chart.innerHTML = '';
 
     const max = Math.max(...Object.values(types));
 
     Object.entries(types).forEach(([type, count]) => {
-      const bar = document.createElement("div");
-      bar.className = "chart-bar";
+      const bar = document.createElement('div');
+      bar.className = 'chart-bar';
       bar.style.height = `${(count / max) * 100}%`;
       bar.dataset.label = `${type} (${count})`;
       bar.title = `${type}: ${count} сообщений`;
       chart.appendChild(bar);
     });
   } else {
-    chart.classList.remove("active");
+    chart.classList.remove('active');
   }
 }
 
-/**
- * Обновление статистики
- */
-export function updateStats(stats) {
-  const statsEl = document.getElementById("logsStats");
-  if (!statsEl || !stats) return;
-
-  statsEl.textContent = `📊 Записей: ${stats.totalEntries} | ✅ Извлечено: ${stats.extracted} | 🎯 Уникальных: ${stats.unique} | 📑 Дубликатов: ${stats.duplicates} | ⏱️ ${stats.durationMs} мс`;
-}
-
-/**
- * Переключение состояния карточки (свёрнута/развёрнута)
- */
-export function toggleCard(number) {
-  const card = document.querySelector(
-    `.item-card[data-item-number="${number}"]`
-  );
-  if (card) {
-    card.classList.toggle("collapsed");
-    card.classList.toggle("expanded");
-  }
-}
-
-/**
- * Свернуть все карточки
- */
-export function collapseAllCards() {
-  document.querySelectorAll(".item-card").forEach((card) => {
-    card.classList.add("collapsed");
-    card.classList.remove("expanded");
-  });
-}
-
-/**
- * Развернуть все карточки
- */
-export function expandAllCards() {
-  document.querySelectorAll(".item-card").forEach((card) => {
-    card.classList.remove("collapsed");
-    card.classList.add("expanded");
-  });
-}
-
-/**
- * Переход к определённому сообщению
- */
-export function jumpToMessage(number) {
-  const card = document.querySelector(
-    `.item-card[data-item-number="${number}"]`
-  );
-
-  if (card) {
-    card.scrollIntoView({ behavior: "smooth", block: "center" });
-    card.classList.add("expanded");
-    card.classList.remove("collapsed");
-
-    // Анимация "pulse"
-    card.style.animation = "none";
-    setTimeout(() => {
-      card.style.animation = "pulse 0.5s ease-in-out";
-    }, 10);
-
-    return true;
-  }
-  return false;
-}
+console.log('✅ Logs UI module loaded');
