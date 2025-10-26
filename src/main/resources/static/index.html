@@ -4,8 +4,6 @@
     <meta charset="UTF-8" />
     <title>Data & Log Formatter</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-    <!-- CSS FILES -->
     <link rel="stylesheet" href="css/variables.css" />
     <link rel="stylesheet" href="css/core.css" />
     <link rel="stylesheet" href="css/components.css" />
@@ -66,9 +64,116 @@
         <h1>📋 Анализ логов</h1>
 
         <div class="logs-layout">
-          <!-- ПАНЕЛЬ РЕЗУЛЬТАТОВ -->
+          <!-- ЛЕВАЯ КОЛОНКА: ФОРМА ВВОДА -->
+          <div class="logs-input">
+            <div class="block">
+              <label class="label">Загрузить файл</label>
+              <input type="file" id="logsFile" accept=".log,.txt,.json" />
+              <div id="logsFileInfo" class="hint"></div>
+            </div>
+
+            <div class="block">
+              <label class="label">Или вставьте текст логов</label>
+              <textarea
+                id="logsInput"
+                placeholder="Вставьте логи здесь..."
+              ></textarea>
+            </div>
+
+            <div class="block">
+              <label class="label">Паттерны извлечения</label>
+              <div class="options">
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    class="pat"
+                    value="REQUEST_INTERNAL"
+                    checked
+                  />
+                  Request Internal
+                </label>
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    class="pat"
+                    value="RESPONSE_INTERNAL"
+                    checked
+                  />
+                  Response Internal
+                </label>
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    class="pat"
+                    value="REQUEST_EXTERNAL"
+                    checked
+                  />
+                  Request External
+                </label>
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    class="pat"
+                    value="RESPONSE_EXTERNAL"
+                    checked
+                  />
+                  Response External
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" class="pat" value="DEBUG" checked />
+                  Debug
+                </label>
+              </div>
+            </div>
+
+            <div class="block">
+              <label class="label">Опции обработки</label>
+              <div class="options">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="replaceEsc" checked />
+                  Заменять \n на переносы
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" id="autoSave" checked />
+                  Автосохранение
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" id="showOnlyUnique" />
+                  Только уникальные
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" id="showDuplicates" />
+                  Показывать дубликаты
+                </label>
+              </div>
+            </div>
+
+            <div class="block">
+              <label class="label">Минимальная длина после двоеточия</label>
+              <input type="number" id="minLen" value="50" min="10" max="500" />
+            </div>
+
+            <div class="buttons">
+              <button id="btnNormalize" class="btn-primary">
+                🚀 Обработать
+              </button>
+              <button id="btnLogsReset" class="btn-secondary">
+                🔄 Сбросить
+              </button>
+            </div>
+
+            <div class="buttons mt-4">
+              <button id="btnDownload" class="btn-secondary" disabled>
+                💾 Скачать отчет
+              </button>
+              <button id="btnCopyExport" class="btn-secondary" disabled>
+                📋 Копировать отчет
+              </button>
+            </div>
+          </div>
+
+          <!-- ПРАВАЯ КОЛОНКА: РЕЗУЛЬТАТЫ -->
           <div class="logs-results">
-            <!-- Toolbar -->
             <div class="logs-toolbar">
               <div class="search-container">
                 <input
@@ -98,188 +203,39 @@
                   <option value="timestamp">По времени</option>
                 </select>
 
-                <div class="btn-group">
-                  <button
-                    id="btnCollapseAll"
-                    class="btn-icon"
-                    title="Свернуть все"
-                  >
-                    <span class="icon">▼</span>
-                  </button>
-                  <button
-                    id="btnExpandAll"
-                    class="btn-icon"
-                    title="Развернуть все"
-                  >
-                    <span class="icon">▲</span>
-                  </button>
-                </div>
-
                 <label class="checkbox-label">
                   <input type="checkbox" id="highlightSearch" checked />
                   Подсветка
                 </label>
-              </div>
-            </div>
 
-            <!-- Статистика -->
-            <div id="logsStats" class="stats"></div>
-
-            <!-- Мини-график -->
-            <div id="logsChart" class="mini-chart"></div>
-
-            <!-- Кнопки экспорта -->
-            <div class="buttons mb8">
-              <button id="btnDownload" disabled>📥 Скачать общий отчёт</button>
-              <button id="btnCopyExport" disabled>📋 Копировать отчёт</button>
-              <button id="btnExportSelected" disabled>
-                ✅ Экспорт выбранных
-              </button>
-              <button id="btnCompare" disabled>🔍 Сравнить (2)</button>
-            </div>
-
-            <!-- История поиска -->
-            <div id="searchHistory" class="search-history"></div>
-
-            <!-- Результаты -->
-            <div id="logsItems" class="logs-items"></div>
-          </div>
-
-          <!-- ПАНЕЛЬ ВВОДА -->
-          <div class="logs-input">
-            <div class="block">
-              <label class="label">📁 Файл логов (до 10 МБ):</label>
-              <input
-                type="file"
-                id="logsFile"
-                accept=".txt,.log,.json,.ndjson"
-              />
-              <div id="logsFileInfo" class="hint"></div>
-            </div>
-
-            <div class="block">
-              <label class="label">📝 Или вставьте текст вручную:</label>
-              <textarea
-                id="logsInput"
-                placeholder="Вставьте логи в формате NDJSON (каждая строка - отдельный JSON объект)..."
-              ></textarea>
-            </div>
-
-            <div class="block options">
-              <div class="opt-group">
-                <div class="opt-title">Паттерны извлечения:</div>
-                <label
-                  ><input
-                    type="checkbox"
-                    class="pat"
-                    value="internalRequest"
-                    checked
-                  />
-                  internalRequest</label
-                >
-                <label
-                  ><input
-                    type="checkbox"
-                    class="pat"
-                    value="externalRequest"
-                    checked
-                  />
-                  externalRequest</label
-                >
-                <label
-                  ><input
-                    type="checkbox"
-                    class="pat"
-                    value="internalResponse"
-                    checked
-                  />
-                  internalResponse</label
-                >
-                <label
-                  ><input
-                    type="checkbox"
-                    class="pat"
-                    value="externalResponse"
-                    checked
-                  />
-                  externalResponse</label
-                >
-                <label
-                  ><input type="checkbox" class="pat" value="request" checked />
-                  request</label
-                >
-                <label
-                  ><input type="checkbox" class="pat" value="args" checked />
-                  args (для method execution логов)</label
-                >
-                <label
-                  ><input
-                    type="checkbox"
-                    class="pat"
-                    value="response"
-                    checked
-                  />
-                  response</label
-                >
-                <label
-                  ><input
-                    type="checkbox"
-                    class="pat"
-                    value="afterColon"
-                    checked
-                  />
-                  afterColon</label
-                >
-              </div>
-
-              <div class="opt-group">
-                <label
-                  ><input type="checkbox" id="replaceEsc" checked /> Заменять \n
-                  на переводы строк</label
-                >
-                <label
-                  >Min длина после двоеточия:
-                  <input
-                    type="number"
-                    id="minLen"
-                    value="50"
-                    min="0"
-                    style="width: 90px"
-                  />
+                <label class="checkbox-label">
+                  <input type="checkbox" id="regexMode" />
+                  Regex
                 </label>
               </div>
 
-              <div class="opt-group">
-                <label
-                  ><input type="checkbox" id="showOnlyUnique" checked /> Только
-                  уникальные</label
-                >
-                <label
-                  ><input type="checkbox" id="showDuplicates" /> Показывать
-                  дубликаты</label
-                >
-                <label
-                  ><input type="checkbox" id="autoSave" /> Автосохранение</label
-                >
-                <label
-                  ><input type="checkbox" id="regexMode" /> Regex поиск</label
-                >
-              </div>
+              <div id="searchHistory" class="search-history"></div>
             </div>
 
-            <div class="buttons">
-              <button id="btnNormalize" class="btn-primary">
-                ⚡ Извлечь и проанализировать
+            <div id="logsStats" class="stats"></div>
+            <div id="logsChart" class="chart"></div>
+
+            <div class="logs-controls">
+              <button id="btnCollapseAll" class="btn-small">
+                📦 Свернуть все
               </button>
-              <button id="btnLogsReset" class="secondary">
-                🗑️ Очистить всё
+              <button id="btnExpandAll" class="btn-small">
+                📂 Развернуть все
+              </button>
+              <button id="btnExportSelected" class="btn-small" disabled>
+                💾 Экспорт выбранных
+              </button>
+              <button id="btnCompare" class="btn-small" disabled>
+                🔍 Сравнить (2)
               </button>
             </div>
 
-            <div class="hint" style="margin-top: 12px">
-              💡 Подсказка: используйте Ctrl+F для быстрого поиска, Ctrl+G для
-              перехода к сообщению
-            </div>
+            <div id="logsItems"></div>
           </div>
         </div>
       </section>
@@ -293,6 +249,7 @@
               <input type="file" id="jsonFile" accept=".json,.txt" />
               <div id="jsonFileInfo" class="hint"></div>
             </div>
+
             <div class="block">
               <label class="label">Или вставьте текст вручную:</label>
               <textarea
@@ -316,9 +273,9 @@
             </div>
 
             <div class="buttons" id="formatButtons">
-              <button id="btnPretty">Pretty</button>
-              <button id="btnMinify">Minify</button>
-              <button id="btnValidate" class="secondary">Validate</button>
+              <button id="btnPretty" class="btn-primary">Pretty</button>
+              <button id="btnMinify" class="btn-primary">Minify</button>
+              <button id="btnValidate" class="btn-secondary">Validate</button>
             </div>
 
             <div class="buttons hidden" id="wrapperButtons">
@@ -335,14 +292,19 @@
               >
             </div>
           </div>
+
           <div class="right">
             <div id="jsonOutput" class="output"></div>
             <div id="jsonStats" class="stats"></div>
             <div id="jsonIntegrity" class="hint"></div>
             <div id="jsonErrors" class="errors"></div>
             <div class="buttons">
-              <button id="btnCopyJson" disabled>Копировать результат</button>
-              <button id="btnDownloadJson" disabled>Скачать result.json</button>
+              <button id="btnCopyJson" class="btn-secondary" disabled>
+                📋 Копировать
+              </button>
+              <button id="btnDownloadJson" class="btn-secondary" disabled>
+                💾 Скачать
+              </button>
             </div>
           </div>
         </div>
@@ -358,6 +320,7 @@
               <input type="file" id="xmlFile" accept=".xml,.txt" />
               <div id="xmlFileInfo" class="hint"></div>
             </div>
+
             <div class="block">
               <label class="label">Или вставьте текст вручную:</label>
               <textarea
@@ -365,36 +328,45 @@
                 placeholder="Вставьте XML или XML в виде JSON-строки..."
               ></textarea>
             </div>
+
             <div class="block options">
               <div class="opt-group">
-                <label
-                  ><input type="checkbox" id="xmlUnescape" /> Unescape из
-                  JSON-строки</label
-                >
-                <label
-                  ><input type="checkbox" id="xmlKeepDecl" checked /> Сохранить
-                  XML декларацию</label
-                >
-                <label
-                  ><input type="checkbox" id="xmlEscape" checked /> Escape для
-                  JSON-строки</label
-                >
+                <label>
+                  <input type="checkbox" id="xmlUnescape" />
+                  Unescape из JSON-строки
+                </label>
+                <label>
+                  <input type="checkbox" id="xmlKeepDecl" checked />
+                  Сохранить XML декларацию
+                </label>
+                <label>
+                  <input type="checkbox" id="xmlEscape" />
+                  Escape для JSON-строки
+                </label>
               </div>
             </div>
+
             <div class="buttons">
-              <button id="btnXmlPretty">Pretty</button>
-              <button id="btnXmlMinify">Minify</button>
-              <button id="btnXmlValidate" class="secondary">Validate</button>
+              <button id="btnXmlPretty" class="btn-primary">Pretty</button>
+              <button id="btnXmlMinify" class="btn-primary">Minify</button>
+              <button id="btnXmlValidate" class="btn-secondary">
+                Validate
+              </button>
             </div>
           </div>
+
           <div class="right">
             <div id="xmlOutput" class="output"></div>
             <div id="xmlStats" class="stats"></div>
             <div id="xmlIntegrity" class="hint"></div>
             <div id="xmlErrors" class="errors"></div>
             <div class="buttons">
-              <button id="btnCopyXml" disabled>Копировать результат</button>
-              <button id="btnDownloadXml" disabled>Скачать result.xml</button>
+              <button id="btnCopyXml" class="btn-secondary" disabled>
+                📋 Копировать
+              </button>
+              <button id="btnDownloadXml" class="btn-secondary" disabled>
+                💾 Скачать
+              </button>
             </div>
           </div>
         </div>
@@ -403,7 +375,6 @@
       <section id="graphql" class="route hidden">
         <h1>🔮 GraphQL Formatter & Tools</h1>
 
-        <!-- Табы навигации -->
         <div class="graphql-tabs">
           <button class="tab-btn active" data-tab="format">📝 Format</button>
           <button class="tab-btn" data-tab="schema">🔧 Schema Generator</button>
@@ -411,7 +382,7 @@
         </div>
 
         <!-- FORMAT TAB -->
-        <div id="graphql-format" class="graphql-tab">
+        <div id="format-tab" class="graphql-tab-content active">
           <div class="graphql-split">
             <div class="graphql-input-panel">
               <div class="graphql-toolbar">
@@ -424,8 +395,12 @@
                     style="display: none"
                   />
                 </label>
-                <button id="btnPasteGraphQL" class="btn-tool">📋 Paste</button>
-                <button id="btnClearGraphQL" class="btn-tool">🗑️ Clear</button>
+                <button onclick="window.pasteGraphQL()" class="btn-tool">
+                  📋 Paste
+                </button>
+                <button onclick="window.clearGraphQL()" class="btn-tool">
+                  🗑️ Clear
+                </button>
                 <label class="checkbox-inline">
                   <input type="checkbox" id="realTimePreview" checked />
                   Real-time
@@ -457,11 +432,15 @@ mutation CreateUser {
             <div class="graphql-output-panel">
               <div class="graphql-toolbar">
                 <span class="status-indicator" id="formatStatus">✅ Ready</span>
-                <button id="btnCopyGraphQL" class="btn-tool">📋 Copy</button>
-                <button id="btnDownloadGraphQL" class="btn-tool">
+                <button onclick="window.copyGraphQL()" class="btn-tool">
+                  📋 Copy
+                </button>
+                <button onclick="window.downloadGraphQL()" class="btn-tool">
                   💾 Save
                 </button>
-                <button id="btnShareGraphQL" class="btn-tool">🔗 Share</button>
+                <button onclick="window.shareGraphQL()" class="btn-tool">
+                  🔗 Share
+                </button>
               </div>
               <pre id="graphqlOutput" class="code-output"></pre>
             </div>
@@ -469,12 +448,14 @@ mutation CreateUser {
         </div>
 
         <!-- SCHEMA TAB -->
-        <div id="graphql-schema" class="graphql-tab hidden">
+        <div id="schema-tab" class="graphql-tab-content hidden">
           <div class="graphql-split">
             <div class="graphql-input-panel">
               <div class="graphql-toolbar">
                 <h3>Query/Mutation → Schema</h3>
-                <button id="btnLoadExample" class="btn-tool">📝 Example</button>
+                <button onclick="window.loadExampleQuery()" class="btn-tool">
+                  📝 Example
+                </button>
               </div>
               <textarea
                 id="queryForSchema"
@@ -486,8 +467,12 @@ mutation CreateUser {
             <div class="graphql-output-panel">
               <div class="graphql-toolbar">
                 <h3>Generated Schema</h3>
-                <button id="btnCopySchema" class="btn-tool">📋 Copy</button>
-                <button id="btnDownloadSchema" class="btn-tool">💾 Save</button>
+                <button onclick="window.copySchema()" class="btn-tool">
+                  📋 Copy
+                </button>
+                <button onclick="window.downloadSchema()" class="btn-tool">
+                  💾 Save
+                </button>
               </div>
               <pre id="schemaOutput" class="code-output"></pre>
             </div>
@@ -495,13 +480,15 @@ mutation CreateUser {
         </div>
 
         <!-- MERGE TAB -->
-        <div id="graphql-merge" class="graphql-tab hidden">
+        <div id="merge-tab" class="graphql-tab-content hidden">
           <div class="merge-container">
             <div class="merge-inputs" id="mergeInputsContainer">
               <div class="merge-input-box">
                 <div class="merge-header">
                   <h4>Schema/Query 1</h4>
-                  <button data-clear-merge="0" class="btn-small">Clear</button>
+                  <button onclick="window.clearMergeInput(0)" class="btn-small">
+                    Clear
+                  </button>
                 </div>
                 <textarea
                   id="mergeInput0"
@@ -512,7 +499,9 @@ mutation CreateUser {
               <div class="merge-input-box">
                 <div class="merge-header">
                   <h4>Schema/Query 2</h4>
-                  <button data-clear-merge="1" class="btn-small">Clear</button>
+                  <button onclick="window.clearMergeInput(1)" class="btn-small">
+                    Clear
+                  </button>
                 </div>
                 <textarea
                   id="mergeInput1"
@@ -523,7 +512,7 @@ mutation CreateUser {
             </div>
 
             <div class="merge-controls">
-              <button id="btnAddMergeInput" class="btn-secondary">
+              <button onclick="window.addMergeInput()" class="btn-secondary">
                 ➕ Add Another
               </button>
               <select id="mergeStrategy">
@@ -532,7 +521,7 @@ mutation CreateUser {
                 <option value="keep_last">Keep Last on Conflict</option>
                 <option value="interactive">Interactive Resolution</option>
               </select>
-              <button id="btnPerformMerge" class="btn-primary">
+              <button onclick="window.performMerge()" class="btn-primary">
                 🔀 Merge All
               </button>
             </div>
@@ -546,19 +535,24 @@ mutation CreateUser {
               <div class="graphql-toolbar">
                 <h4>Merged Result</h4>
                 <span id="mergeStats" class="stats-text"></span>
-                <button id="btnCopyMerged" class="btn-tool">📋 Copy</button>
+                <button onclick="window.copyMerged()" class="btn-tool">
+                  📋 Copy
+                </button>
               </div>
               <pre id="mergeOutput" class="code-output"></pre>
             </div>
           </div>
         </div>
       </section>
+
       <!-- Модальное окно сравнения -->
       <div id="compareModal" class="modal hidden">
         <div class="modal-content">
           <div class="modal-header">
             <h2>🔍 Сравнение сообщений</h2>
-            <button class="modal-close" id="btnCloseCompare">✕</button>
+            <button class="modal-close" onclick="window.closeCompareModal()">
+              ✕
+            </button>
           </div>
           <div class="modal-body">
             <div class="compare-panels">
@@ -576,7 +570,6 @@ mutation CreateUser {
       </div>
     </main>
 
-    <!-- ГЛАВНЫЙ JS ФАЙЛ (ES6 MODULE) -->
     <script type="module" src="js/app.js"></script>
   </body>
 </html>
