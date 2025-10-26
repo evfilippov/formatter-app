@@ -1,6 +1,6 @@
 package com.example.formatter.model.graphql;
 
-public class FormatOptions {
+public class GraphQLFormatOptions {
     private int indentSize = 2;
     private boolean sortFields = false;
     private boolean inlineFragments = false;
