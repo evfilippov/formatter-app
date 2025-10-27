@@ -1,64 +1,55 @@
-// ============================================
-// MAIN APPLICATION
-// ============================================
+/* ============================================
+   APP.JS - Главный файл приложения
+   ============================================ */
 
-import { initRouter } from "./core/router.js";
-import { initModals } from "./components/modal.js";        
-import { initLogs } from "./modules/logs/logs.js";
-import { initJson } from "./modules/json/json.js";
-import { initXml } from "./modules/xml/xml.js";
-import { initGraphQL } from "./modules/graphql/graphql.js";
+import { initRouter, navigateTo } from "./core/router.js";
+import { initLogs, cleanupLogs } from "./modules/logs/logsInit.js";
+import { initJson, cleanupJson } from "./modules/json/jsonInit.js";
+import { initXml, cleanupXml } from "./modules/xml/xmlInit.js";
 
 /**
  * Инициализация приложения
  */
-async function initApp() {
-  console.log("��� Application starting...");
+function initApp() {
+  console.log("🚀 Запуск приложения LogParser Pro...");
 
-  try {
-    // Инициализация роутера
-    initRouter();
+  // 1. Инициализация роутера
+  initRouter(handleSectionChange);
 
-    // Инициализация модальных окон
-    initModals();
+  // 2. Определяем текущую секцию из URL
+  const hash = window.location.hash.slice(1) || "logs";
+  navigateTo(hash);
 
-    // Инициализация модулей по роутам
-    initModulesByRoute();
+  // 3. Приветственное сообщение
+  console.log(`
+╔════════════════════════════════════════════╗
+║                                            ║
+║         📊 LogParser Pro v1.0              ║
+║                                            ║
+║   ✅ Logs Parser - Анализ логов           ║
+║   ✅ JSON Formatter - Форматирование       ║
+║   ✅ XML Formatter - Форматирование        ║
+║                                            ║
+║   🎯 Готово к работе!                      ║
+║                                            ║
+╚════════════════════════════════════════════╝
+  `);
 
-    console.log("✅ Application ready!");
-  } catch (error) {
-    console.error("❌ Application initialization failed:", error);
-  }
+  console.log("✅ Приложение запущено");
 }
 
 /**
- * Инициализация модулей на основе роута
+ * Обработчик смены секции
+ * @param {string} section - Название секции (logs/json/xml)
  */
-function initModulesByRoute() {
-  const hash = window.location.hash?.substring(1) || "home";
+function handleSectionChange(section) {
+  console.log(`🔄 Переключение на секцию: ${section}`);
 
-  // Инициализируем модули только при переходе на соответствующую страницу
-  window.addEventListener("routeChange", (e) => {
-    const route = e.detail.route;
+  // Очищаем предыдущую секцию
+  cleanupPreviousSection();
 
-    switch (route) {
-      case "logs":
-        initLogs();
-        break;
-      case "json":
-        initJson();
-        break;
-      case "xml":
-        initXml();
-        break;
-      case "graphql":
-        initGraphQL();
-        break;
-    }
-  });
-
-  // Инициализация текущего модуля при загрузке
-  switch (hash) {
+  // Инициализируем новую секцию
+  switch (section) {
     case "logs":
       initLogs();
       break;
@@ -68,75 +59,40 @@ function initModulesByRoute() {
     case "xml":
       initXml();
       break;
-    case "graphql":
-      initGraphQL();
-      break;
+    default:
+      console.warn(`⚠️ Неизвестная секция: ${section}`);
   }
 }
 
 /**
- * Обработка навигации на home странице
+ * Очистка предыдущей секции
  */
-function initHomeNavigation() {
-  const cards = document.querySelectorAll(".card[data-route]");
+function cleanupPreviousSection() {
+  const currentSection = document.querySelector(".section:not(.hidden)");
+  if (!currentSection) return;
 
-  cards.forEach((card) => {
-    card.addEventListener("click", () => {
-      const route = card.dataset.route;
-      if (route) {
-        window.location.hash = route;
-      }
-    });
-  });
+  const sectionId = currentSection.id;
+
+  switch (sectionId) {
+    case "logs":
+      cleanupLogs();
+      break;
+    case "json":
+      cleanupJson();
+      break;
+    case "xml":
+      cleanupXml();
+      break;
+  }
 }
 
-/**
- * Обработка ошибок глобально
- */
-window.addEventListener("error", (e) => {
-  console.error("Global error:", e.error);
-});
+// === ЗАПУСК ПРИЛОЖЕНИЯ ===
+document.addEventListener("DOMContentLoaded", initApp);
 
-window.addEventListener("unhandledrejection", (e) => {
-  console.error("Unhandled promise rejection:", e.reason);
-});
+// === ЭКСПОРТ ДЛЯ ГЛОБАЛЬНОГО ДОСТУПА ===
+window.app = {
+  version: "1.0.0",
+  navigateTo,
+};
 
-// Запуск приложения при загрузке DOM
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => {
-    initApp();
-    initHomeNavigation();
-  });
-} else {
-  initApp();
-  initHomeNavigation();
-}
-
-console.log("��� App.js loaded");
-
-// ============================================
-// ЭКСПОРТ ФУНКЦИЙ В ГЛОБАЛЬНУЮ ОБЛАСТЬ
-// ============================================
-
-import { 
-  toggleCard, 
-  toggleSelection, 
-  toggleStar, 
-  copyJson, 
-  copyBlock, 
-  downloadItem, 
-  addToCompare,
-  closeCompareModal 
-} from './modules/logs/logs.js';
-
-// Экспорт функций логов
-window.toggleCard = toggleCard;
-window.toggleSelection = toggleSelection;
-window.toggleStar = toggleStar;
-window.copyJson = copyJson;
-window.copyBlock = copyBlock;
-window.downloadItem = downloadItem;
-window.addToCompare = addToCompare;
-window.closeCompareModal = closeCompareModal;
-
-console.log('✅ Global functions exported');
+console.log("📦 app.js загружен");

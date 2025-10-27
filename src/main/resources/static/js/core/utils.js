@@ -1,24 +1,28 @@
-// ============================================
-// UTILITIES
-// ============================================
+/* ============================================
+   UTILS - Вспомогательные функции
+   ============================================ */
 
 /**
- * Установка текстового содержимого элемента
+ * Устанавливает текст в элемент по ID
+ * @param {string} id - ID элемента
+ * @param {string} text - Текст для установки
  */
 export function setText(id, text) {
   const element = document.getElementById(id);
   if (element) {
-    element.textContent = text ?? '';
+    element.textContent = text ?? "";
   }
 }
 
 /**
- * Скачивание текста как файла
+ * Скачивание текста как файл
+ * @param {string} text - Содержимое файла
+ * @param {string} filename - Имя файла
  */
 export function downloadText(text, filename) {
-  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   a.click();
@@ -26,20 +30,23 @@ export function downloadText(text, filename) {
 }
 
 /**
- * Копирование в буфер обмена
+ * Форматирование размера в байтах
+ * @param {number} bytes - Размер в байтах
+ * @returns {string} Читаемый формат (B, KB, MB)
  */
-export async function copyToClipboard(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch (error) {
-    console.error('Failed to copy:', error);
-    return false;
-  }
+export function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return "0 B";
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  const value = bytes / Math.pow(1024, i);
+  return `${Math.round(value * 100) / 100} ${sizes[i]}`;
 }
 
 /**
- * Debounce функция
+ * Debounce функция (задержка выполнения)
+ * @param {Function} func - Функция для выполнения
+ * @param {number} wait - Задержка в миллисекундах
+ * @returns {Function} Debounced функция
  */
 export function debounce(func, wait) {
   let timeout;
@@ -54,84 +61,32 @@ export function debounce(func, wait) {
 }
 
 /**
- * Форматирование байтов
+ * Копирование текста в буфер обмена
+ * @param {string} text - Текст для копирования
+ * @returns {Promise<void>}
  */
-export function formatBytes(bytes) {
-  if (!bytes) return '0 B';
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i];
+export async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (err) {
+    console.error("Failed to copy:", err);
+    return false;
+  }
 }
 
 /**
- * Escape HTML
+ * Экранирование HTML символов
+ * @param {string} text - Текст для экранирования
+ * @returns {string} Экранированный текст
  */
 export function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-/**
- * Highlight текста
- */
-export function highlightText(text, searchTerm) {
-  if (!searchTerm) return text;
-
-  try {
-    const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`(${escaped})`, 'gi');
-    return text.replace(regex, '<span class="highlight">$1</span>');
-  } catch (e) {
-    console.error('Highlight error:', e);
-    return text;
-  }
-}
-
-/**
- * Проверка валидности JSON
- */
-export function isValidJSON(str) {
-  try {
-    JSON.parse(str);
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-/**
- * Проверка валидности XML
- */
-export function isValidXML(str) {
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(str, 'text/xml');
-    return !doc.querySelector('parsererror');
-  } catch (e) {
-    return false;
-  }
-}
-
-/**
- * Генерация уникального ID
- */
-export function generateId() {
-  return `id-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
-
-/**
- * Throttle функция
- */
-export function throttle(func, limit) {
-  let inThrottle;
-  return function(...args) {
-    if (!inThrottle) {
-      func.apply(this, args);
-      inThrottle = true;
-      setTimeout(() => inThrottle = false, limit);
-    }
+  const map = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
   };
+  return text.replace(/[&<>"']/g, (m) => map[m]);
 }
-
-console.log('✅ Utils module loaded');
