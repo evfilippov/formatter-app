@@ -1,0 +1,14 @@
+# Сборка Maven
+target/
+
+# Логи и временные файлы
+*.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# ОС
+.DS_Store
+Thumbs.db

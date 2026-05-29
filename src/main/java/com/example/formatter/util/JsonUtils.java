@@ -4,8 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.node.*;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.*;
 
 public class JsonUtils {
@@ -46,16 +44,7 @@ public class JsonUtils {
   }
 
   public static String canonicalHash(JsonNode node) {
-    try {
-      String can = canonicalize(node);
-      MessageDigest md = MessageDigest.getInstance("SHA-256");
-      byte[] dig = md.digest(can.getBytes(StandardCharsets.UTF_8));
-      StringBuilder sb = new StringBuilder();
-      for (byte b : dig) sb.append(String.format("%02x", b));
-      return sb.toString();
-    } catch (Exception e) {
-      throw new RuntimeException("JSON hash failed", e);
-    }
+    return HashUtil.sha256(canonicalize(node));
   }
 
   public static String formatTabbed(JsonNode node) {

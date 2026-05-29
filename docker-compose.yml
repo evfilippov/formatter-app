@@ -1,0 +1,29 @@
+# Удобный запуск без локального Maven/Java — всё через Docker Compose.
+#
+#   Запустить приложение:   docker compose up --build      → открой http://localhost:8080
+#   Остановить:             docker compose down
+#   Прогнать тесты:         docker compose run --rm test
+#
+# Сервис app собирается по Dockerfile (production-like jar).
+# Сервис test поднимает Maven в контейнере и гоняет тесты по исходникам,
+# кэшируя зависимости в томе maven-repo (повторные прогоны быстрые).
+
+services:
+  app:
+    build: .
+    container_name: formatter-app
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  test:
+    image: maven:3.9-eclipse-temurin-21
+    working_dir: /app
+    volumes:
+      - .:/app
+      - maven-repo:/root/.m2
+    command: mvn -B test
+    profiles: ["test"]
+
+volumes:
+  maven-repo:

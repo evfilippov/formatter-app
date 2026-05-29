@@ -5,15 +5,17 @@ import com.example.formatter.model.NormalizeItem;
 import com.example.formatter.model.NormalizeRequest;
 import com.example.formatter.model.NormalizeResponse;
 import com.example.formatter.model.NormalizeStats;
+import com.example.formatter.util.HashUtil;
+import com.example.formatter.util.JsonBalancer;
 import com.example.formatter.util.JsonUtils;
-import com.example.formatter.util.UniversalJsonExtractor;  // ← НОВЫЙ ИМПОРТ
+import com.example.formatter.util.UniversalJsonExtractor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -21,6 +23,7 @@ import java.util.regex.Pattern;
 @Service
 public class LogService {
 
+  private static final Logger log = LoggerFactory.getLogger(LogService.class);
   private static final ObjectMapper MAPPER = JsonUtils.mapper();
 
   // Поля “служебных” логов (фильтр как в Python)
@@ -48,12 +51,35 @@ public class LogService {
     long t0 = System.currentTimeMillis();
 
     String input = req.input() == null ? "" : req.input();
-    int totalInBytes = input.getBytes(StandardCharsets.UTF_8).length;
+    Set<String> enabled = resolveEnabledPatterns(req);
+    int minLen = req.minAfterColonLength() == null ? 50 : Math.max(0, req.minAfterColonLength());
 
-    // Ограничения по размеру тут уже должны быть, но на всякий:
-    // if (totalInBytes > 10 * 1024 * 1024) { ... }
+    // Парсим лог-записи по алгоритму Python
+    List<Entry> entries = parseMultipleLogEntries(input);
 
-    // Разрешённые паттерны из запроса
+    Acc acc = new Acc();
+    for (Entry entry : entries) {
+      processEntry(entry, req, enabled, minLen, acc);
+    }
+
+    // Экспортный текст ровно как в Python
+    String exportText = buildExport(acc.blocks);
+    NormalizeExport export = new NormalizeExport(exportText, "output.json");
+
+    NormalizeStats stats = new NormalizeStats(
+        entries.size(), acc.extracted, acc.unique, acc.duplicates, System.currentTimeMillis() - t0);
+
+    return new NormalizeResponse(
+        stats,
+        acc.items,
+        export,
+        Collections.emptyList(),
+        Collections.emptyList()
+    );
+  }
+
+  /** Разрешённые паттерны из запроса; при отсутствии — набор по умолчанию. */
+  private Set<String> resolveEnabledPatterns(NormalizeRequest req) {
     Set<String> enabled = new LinkedHashSet<>();
     if (req.enabledPatterns() != null && !req.enabledPatterns().isEmpty()) {
       for (String s : req.enabledPatterns()) {
@@ -62,118 +88,99 @@ public class LogService {
     } else {
       enabled.addAll(List.of("internalRequest","externalRequest","internalResponse","externalResponse","request","response","afterColon"));
     }
+    return enabled;
+  }
 
-    // Парсим лог-записи по алгоритму Python
-    List<Entry> entries = parseMultipleLogEntries(input);
+  /** Обрабатывает одну лог-запись: фильтрация, извлечение паттернов, накопление результата. */
+  private void processEntry(Entry entry, NormalizeRequest req, Set<String> enabled, int minLen, Acc acc) {
+    String description = extractMessageDescription(entry.content());
 
-    List<NormalizeItem> outItems = new ArrayList<>();
-    List<Block> uniqueBlocks = new ArrayList<>();
-    Set<String> seenHashes = new LinkedHashSet<>();
-    int messageCounter = 0;
-
-    int extractedCount = 0;
-    int uniqueCount = 0;
-    int dupCount = 0;
-
-    for (Entry entry : entries) {
-      String description = extractMessageDescription(entry.content());
-
-      // Спец-фильтр, как в Python
-      if (description.startsWith("{\"timestamp\"") || description.startsWith("{\"context\"")) {
-        continue;
-      }
-
-      String textForPatterns;
-      if (entry.type() == Type.JSON) {
-        Object obj = entry.content();
-        if (obj instanceof ObjectNode on && on.hasNonNull("message")) {
-          JsonNode msg = on.get("message");
-          textForPatterns = msg.isTextual() ? msg.asText() : msg.toString();
-        } else {
-          continue;
-        }
-      } else {
-        textForPatterns = String.valueOf(entry.content());
-      }
-
-      // НЕ трогаем экранированные кавычки; опционально заменяем \n и \t
-      String contentClean = textForPatterns;
-      if (Boolean.TRUE.equals(req.replaceEscapedNewlines())) {
-        contentClean = contentClean.replace("\\n", "\n").replace("\\t", " ");
-      }
-
-      int minLen = req.minAfterColonLength() == null ? 50 : Math.max(0, req.minAfterColonLength());
-
-      LinkedHashMap<String, String> messages = extractAllJsonPatterns(contentClean, enabled, minLen);
-      if (messages.isEmpty()) continue;
-
-      for (Map.Entry<String, String> me : messages.entrySet()) {
-        extractedCount++;
-        messageCounter++;
-        String baseKey = me.getKey();
-        String uniqueKey = baseKey + "_" + messageCounter;
-        String rawJson = me.getValue();
-
-        try {
-          JsonNode node = MAPPER.readTree(rawJson);
-          if (!node.isObject()) continue;
-          ObjectNode obj = (ObjectNode) node;
-
-          // Каноникализация для хеша
-          String canonical = JsonUtils.canonicalize(obj);
-          String hash = sha256(canonical);
-
-          if (!seenHashes.contains(hash)) {
-            seenHashes.add(hash);
-            uniqueCount++;
-
-            String pretty = JsonUtils.formatTabbed(obj);
-            int lines = JsonUtils.countLines(pretty);
-            int valueCount = JsonUtils.countValueKey(pretty);
-            int rawLength = rawJson.length();
-
-            // NormalizeItem record порядок полей:
-            // (index:int, key:String, number:Integer, description:String, hash:String,
-            //  format:String, pretty:String, lines:int, valueCount:int, rawLength:int, duplicateOf:Integer)
-            NormalizeItem item = new NormalizeItem(
-                messageCounter,
-                baseKey,
-                Integer.valueOf(uniqueCount),
-                description == null || description.isBlank() ? "Без описания" : description,
-                hash,
-                "json",
-                pretty,
-                lines,
-                valueCount,
-                rawLength,
-                null
-            );
-            outItems.add(item);
-
-            uniqueBlocks.add(new Block(uniqueCount, uniqueKey, baseKey, item.description(), pretty));
-          } else {
-            dupCount++;
-            // Дубликаты не добавляем в outItems (как в python-скрипте)
-          }
-        } catch (Exception ignore) {
-          // Некорректный JSON — пропускаем, как в Python
-        }
-      }
+    // Спец-фильтр, как в Python
+    if (description.startsWith("{\"timestamp\"") || description.startsWith("{\"context\"")) {
+      return;
     }
 
-    // Экспортный текст ровно как в Python
-    String exportText = buildExport(uniqueBlocks);
-    NormalizeExport export = new NormalizeExport(exportText, "output.json");
+    String textForPatterns = resolveTextForPatterns(entry);
+    if (textForPatterns == null) return;
 
-    NormalizeStats stats = new NormalizeStats(entries.size(), extractedCount, uniqueCount, dupCount, System.currentTimeMillis() - t0);
+    // НЕ трогаем экранированные кавычки; опционально заменяем \n и \t
+    String contentClean = textForPatterns;
+    if (Boolean.TRUE.equals(req.replaceEscapedNewlines())) {
+      contentClean = contentClean.replace("\\n", "\n").replace("\\t", " ");
+    }
 
-    return new NormalizeResponse(
-        stats,
-        outItems,
-        export,
-        Collections.emptyList(),
-        Collections.emptyList()
-    );
+    LinkedHashMap<String, String> messages = extractAllJsonPatterns(contentClean, enabled, minLen);
+    if (messages.isEmpty()) return;
+
+    for (Map.Entry<String, String> me : messages.entrySet()) {
+      addExtractedMessage(me.getKey(), me.getValue(), description, acc);
+    }
+  }
+
+  /** Текст, по которому ищем паттерны: message у JSON-записи (иначе пропуск), либо сырой текст. */
+  private String resolveTextForPatterns(Entry entry) {
+    if (entry.type() == Type.JSON) {
+      Object obj = entry.content();
+      if (obj instanceof ObjectNode on && on.hasNonNull("message")) {
+        JsonNode msg = on.get("message");
+        return msg.isTextual() ? msg.asText() : msg.toString();
+      }
+      return null; // JSON-запись без поля message — пропускаем
+    }
+    return String.valueOf(entry.content());
+  }
+
+  /** Каноникализация → хеш → дедупликация → формирование item/block. Счётчики ведёт acc. */
+  private void addExtractedMessage(String baseKey, String rawJson, String description, Acc acc) {
+    acc.extracted++;
+    acc.messageCounter++;
+    String uniqueKey = baseKey + "_" + acc.messageCounter;
+
+    try {
+      JsonNode node = MAPPER.readTree(rawJson);
+      if (!node.isObject()) return;
+      ObjectNode obj = (ObjectNode) node;
+
+      // Каноникализация для хеша
+      String canonical = JsonUtils.canonicalize(obj);
+      String hash = HashUtil.sha256(canonical);
+
+      if (acc.seenHashes.contains(hash)) {
+        acc.duplicates++;
+        // Дубликаты не добавляем в items (как в python-скрипте)
+        return;
+      }
+      acc.seenHashes.add(hash);
+      acc.unique++;
+
+      String pretty = JsonUtils.formatTabbed(obj);
+      int lines = JsonUtils.countLines(pretty);
+      int valueCount = JsonUtils.countValueKey(pretty);
+      int rawLength = rawJson.length();
+
+      // NormalizeItem record порядок полей:
+      // (index:int, key:String, number:Integer, description:String, hash:String,
+      //  format:String, pretty:String, lines:int, valueCount:int, rawLength:int, duplicateOf:Integer)
+      NormalizeItem item = new NormalizeItem(
+          acc.messageCounter,
+          baseKey,
+          Integer.valueOf(acc.unique),
+          description == null || description.isBlank() ? "Без описания" : description,
+          hash,
+          "json",
+          pretty,
+          lines,
+          valueCount,
+          rawLength,
+          null
+      );
+      acc.items.add(item);
+
+      acc.blocks.add(new Block(acc.unique, uniqueKey, baseKey, item.description(), pretty));
+    } catch (Exception e) {
+      // Некорректный JSON — пропускаем намеренно (как в Python). Лог для диагностики.
+      log.debug("Пропущен некорректный JSON-блок при нормализации: {}", e.toString());
+    }
   }
 
   // ==================== ВНУТРЕННИЕ МЕТОДЫ (Python-style) ====================
@@ -181,6 +188,17 @@ public class LogService {
   private enum Type { JSON, TEXT }
   private record Entry(Type type, Object content) {}
   private record Block(int number, String uniqueKey, String baseKey, String description, String pretty) {}
+
+  /** Изменяемый аккумулятор результата нормализации (списки, дедуп-хеши, счётчики). */
+  private static final class Acc {
+    final List<NormalizeItem> items = new ArrayList<>();
+    final List<Block> blocks = new ArrayList<>();
+    final Set<String> seenHashes = new LinkedHashSet<>();
+    int messageCounter = 0;
+    int extracted = 0;
+    int unique = 0;
+    int duplicates = 0;
+  }
 
   private List<Entry> parseMultipleLogEntries(String content) {
     List<Entry> list = new ArrayList<>();
@@ -252,7 +270,9 @@ public class LogService {
         }
         return "Без описания";
       }
-    } catch (Exception ignore) {}
+    } catch (Exception e) {
+      log.debug("Не удалось извлечь описание сообщения: {}", e.toString());
+    }
     return "Без описания";
   }
 
@@ -277,7 +297,7 @@ public class LogService {
       Matcher m = kp.pattern().matcher(contentClean);
       if (m.find()) {
         int jsonStart = m.end() - 1; // позиция '{'
-        String json = extractCompleteJson(contentClean.substring(jsonStart));
+        String json = JsonBalancer.extractCompleteJson(contentClean.substring(jsonStart));
         if (json != null && json.length() > 10) {
           messages.put(kp.name(), json);
         }
@@ -289,7 +309,7 @@ public class LogService {
       Matcher m = AFTER_COLON.matcher(contentClean);
       if (m.find()) {
         int jsonStart = m.start(1);
-        String json = extractCompleteJson(contentClean.substring(jsonStart));
+        String json = JsonBalancer.extractCompleteJson(contentClean.substring(jsonStart));
         if (json != null && json.length() > minAfterColonLength) {
           try {
             JsonNode node = MAPPER.readTree(json);
@@ -304,7 +324,9 @@ public class LogService {
                 messages.put("message_json", json);
               }
             }
-          } catch (Exception ignore) { }
+          } catch (Exception e) {
+            log.debug("Пропущен JSON после двоеточия (afterColon): {}", e.toString());
+          }
         }
       }
     }
@@ -331,42 +353,6 @@ public class LogService {
       }
     }
     return messages;
-  }
-
-  private String extractCompleteJson(String text) {
-    if (text == null) return null;
-    String s = text.trim();
-    if (!s.startsWith("{")) return null;
-
-    int brace = 0, square = 0;
-    boolean inString = false, escapeNext = false;
-    for (int i = 0; i < s.length(); i++) {
-      char c = s.charAt(i);
-      if (escapeNext) { escapeNext = false; continue; }
-      if (c == '\\') { escapeNext = true; continue; }
-      if (c == '\"') { inString = !inString; continue; }
-      if (!inString) {
-        if (c == '{') brace++;
-        else if (c == '}') {
-          brace--;
-          if (brace == 0 && square == 0) return s.substring(0, i + 1);
-        } else if (c == '[') square++;
-        else if (c == ']') square--;
-      }
-    }
-    return null;
-  }
-
-  private String sha256(String s) {
-    try {
-      MessageDigest md = MessageDigest.getInstance("SHA-256");
-      byte[] dig = md.digest(s.getBytes(StandardCharsets.UTF_8));
-      StringBuilder sb = new StringBuilder();
-      for (byte b : dig) sb.append(String.format("%02x", b));
-      return sb.toString();
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
   }
 
   private String buildExport(List<Block> blocks) {

@@ -33,7 +33,7 @@ public class UniversalJsonExtractor {
     Matcher m = ARGS_PATTERN.matcher(content);
     if (m.find()) {
       int start = m.end() - 1; // позиция '{'
-      String extracted = extractCompleteJson(content.substring(start));
+      String extracted = JsonBalancer.extractCompleteJson(content.substring(start));
       
       if (extracted != null) {
         // Деэкранируем если нужно
@@ -61,7 +61,7 @@ public class UniversalJsonExtractor {
     // Ищем все позиции '{'
     for (int i = 0; i < unescaped.length(); i++) {
       if (unescaped.charAt(i) == '{') {
-        String json = extractCompleteJson(unescaped.substring(i));
+        String json = JsonBalancer.extractCompleteJson(unescaped.substring(i));
         if (json != null && json.length() > 50) {
           json = fixInvalidJson(json);
           if (isValidJson(json)) {
@@ -129,54 +129,6 @@ public class UniversalJsonExtractor {
     }
     
     return fixed;
-  }
-
-  /**
-   * Извлекает полный JSON объект
-   */
-  private static String extractCompleteJson(String text) {
-    if (text == null || text.isEmpty()) return null;
-    String s = text.trim();
-    if (!s.startsWith("{")) return null;
-
-    int brace = 0, square = 0;
-    boolean inString = false, escapeNext = false;
-    
-    for (int i = 0; i < s.length(); i++) {
-      char c = s.charAt(i);
-      
-      if (escapeNext) { 
-        escapeNext = false; 
-        continue; 
-      }
-      
-      if (c == '\\') { 
-        escapeNext = true; 
-        continue; 
-      }
-      
-      if (c == '\"') { 
-        inString = !inString; 
-        continue; 
-      }
-      
-      if (!inString) {
-        if (c == '{') {
-          brace++;
-        } else if (c == '}') {
-          brace--;
-          if (brace == 0 && square == 0) {
-            return s.substring(0, i + 1);
-          }
-        } else if (c == '[') {
-          square++;
-        } else if (c == ']') {
-          square--;
-        }
-      }
-    }
-    
-    return null;
   }
 
   /**

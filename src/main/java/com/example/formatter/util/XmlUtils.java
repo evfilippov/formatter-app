@@ -8,7 +8,6 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -80,14 +79,6 @@ public class XmlUtils {
         stripWhitespaceNodes(list.item(i));
       }
     }
-  }
-
-  public static String minify(String xml, boolean keepXmlDecl, String standalone) throws Exception {
-    Document doc = parseSecure(xml);
-    stripWhitespaceNodes(doc);
-    doc.normalizeDocument();
-    String out = transform(doc, false, keepXmlDecl, standalone != null ? standalone : "no");
-    return out.replace("\r", "").replace("\n", "");
   }
 
   public static String pretty(String xml, boolean keepXmlDecl, String standalone) throws Exception {
@@ -182,15 +173,11 @@ public class XmlUtils {
   // ---------- Хеши целостности ----------
   public static String structuralHashStrict(Document doc) {
     try {
-      MessageDigest md = MessageDigest.getInstance("SHA-256");
       ByteArrayOutputStream bos = new ByteArrayOutputStream(4096);
       try (OutputStreamWriter w = new OutputStreamWriter(bos, StandardCharsets.UTF_8)) {
         walk(doc, w, true);
       }
-      byte[] dig = md.digest(bos.toByteArray());
-      StringBuilder sb = new StringBuilder();
-      for (byte b : dig) sb.append(String.format("%02x", b));
-      return sb.toString();
+      return HashUtil.sha256(bos.toByteArray());
     } catch (Exception e) {
       throw new RuntimeException("XML strict hash failed", e);
     }
@@ -198,15 +185,11 @@ public class XmlUtils {
 
   public static String structuralHashNormalized(Document doc) {
     try {
-      MessageDigest md = MessageDigest.getInstance("SHA-256");
       ByteArrayOutputStream bos = new ByteArrayOutputStream(4096);
       try (OutputStreamWriter w = new OutputStreamWriter(bos, StandardCharsets.UTF_8)) {
         walk(doc, w, false);
       }
-      byte[] dig = md.digest(bos.toByteArray());
-      StringBuilder sb = new StringBuilder();
-      for (byte b : dig) sb.append(String.format("%02x", b));
-      return sb.toString();
+      return HashUtil.sha256(bos.toByteArray());
     } catch (Exception e) {
       throw new RuntimeException("XML normalized hash failed", e);
     }
