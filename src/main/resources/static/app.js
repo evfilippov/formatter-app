@@ -7,15 +7,47 @@ function navigate(hash) {
 }
 
 function onRoute() {
-  const routes = ["home", "logs", "json", "xml"];
+  const routes = ["home", "logs", "logsResult", "json", "xml"];
   const h = window.location.hash?.substring(1) || "home";
   for (const r of routes) {
-    document.getElementById(r).classList.toggle("hidden", r !== h);
+    document.getElementById(r)?.classList.toggle("hidden", r !== h);
   }
+  // Страница результатов логов подсвечивает в сайдбаре пункт «Логи».
+  const navKey = h === "logsResult" ? "logs" : h;
+  document.querySelectorAll(".sidebar-nav a[data-route]").forEach((a) => {
+    a.classList.toggle("active", a.dataset.route === navKey);
+  });
 }
 
 window.addEventListener("hashchange", onRoute);
 window.addEventListener("load", onRoute);
+
+// ============================================
+// ПЕРЕКЛЮЧАТЕЛЬ ТЕМЫ (тёмная / светлая)
+// ============================================
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  try {
+    localStorage.setItem("theme", theme);
+  } catch (e) {}
+  const icon = document.getElementById("themeToggleIcon");
+  const label = document.getElementById("themeToggleLabel");
+  if (icon) icon.textContent = theme === "dark" ? "☾" : "☀";
+  if (label) label.textContent = theme === "dark" ? "Тёмная тема" : "Светлая тема";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const current =
+    document.documentElement.getAttribute("data-theme") || "dark";
+  applyTheme(current);
+  document.getElementById("themeToggle")?.addEventListener("click", () => {
+    const next =
+      document.documentElement.getAttribute("data-theme") === "dark"
+        ? "light"
+        : "dark";
+    applyTheme(next);
+  });
+});
 
 // ============================================
 // УТИЛИТЫ
@@ -140,6 +172,38 @@ function highlightText(text, searchTerm) {
   }
 }
 
+// Подсветка синтаксиса JSON. Экранируем только &<> (кавычки нужны для
+// распознавания токенов и безопасны в текстовом контексте innerHTML),
+// затем оборачиваем ключи/строки/числа/литералы в span с классами tok-*.
+function syntaxHighlightJson(text) {
+  const esc = String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  return esc.replace(
+    /("(?:\\.|[^"\\])*"(?:\s*:)?|\b(?:true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
+    (match) => {
+      let cls = "tok-num";
+      if (match[0] === '"') {
+        cls = /:\s*$/.test(match) ? "tok-key" : "tok-str";
+      } else if (match === "true" || match === "false") {
+        cls = "tok-bool";
+      } else if (match === "null") {
+        cls = "tok-null";
+      }
+      return `<span class="${cls}">${match}</span>`;
+    }
+  );
+}
+
+// Извлекает traceId из извлечённого JSON сообщения (item.pretty), если он там есть.
+// raw-поля у item нет — traceId доступен, только когда входит в извлечённый payload.
+function extractTraceId(item) {
+  const text = item.pretty || item.raw || "";
+  const m = /"trace[_-]?id"\s*:\s*"([^"]+)"/i.exec(text);
+  return m ? m[1] : "";
+}
+
 // ============================================
 // ПОИСК И ФИЛЬТРАЦИЯ
 // ============================================
@@ -147,8 +211,15 @@ function searchLogs() {
   const searchTerm = document.getElementById("logsSearch").value.trim();
   const filterType = document.getElementById("logsFilter").value;
   const sortBy = document.getElementById("logsSort").value;
+  const showOnlyUnique = document.getElementById("showOnlyUnique")?.checked;
+  const showDuplicates = document.getElementById("showDuplicates")?.checked;
 
   filteredItems = allLogItems.filter((item) => {
+    // Фильтр дубликатов (раньше применялся только при анализе и затирался — фикс).
+    const isDuplicate =
+      item.duplicateOf !== null && item.duplicateOf !== undefined;
+    if (showOnlyUnique && isDuplicate && !showDuplicates) return false;
+
     if (filterType !== "all") {
       const itemType = item.key?.toLowerCase() || "";
       const level = item.level?.toLowerCase() || "";
@@ -288,6 +359,12 @@ function renderLogItems() {
       timestamp = item.timestamp || "";
     }
 
+    const traceId = extractTraceId(item);
+    const traceIdShort =
+      traceId.length > 18 ? traceId.slice(0, 18) + "…" : traceId;
+    const highlightOn =
+      document.getElementById("highlightSearch")?.checked !== false;
+
     div.innerHTML = `
       <div class="item-header" onclick="toggleCard(${item.number})">
         <div class="item-header-left">
@@ -303,9 +380,13 @@ function renderLogItems() {
       searchTerm
     )}
           </div>
-          <span class="badge" title="Hash: ${item.hash}">
-            ${item.hash?.slice(0, 8)}…
-          </span>
+          ${
+            traceId
+              ? `<span class="badge" title="traceId: ${escapeHtml(
+                  traceId
+                )}">🔗 ${escapeHtml(traceIdShort)}</span>`
+              : ""
+          }
           ${
             isDup
               ? `<span class="badge dup">Дубликат №${item.duplicateOf}</span>`
@@ -342,7 +423,9 @@ function renderLogItems() {
             : ""
         }
         <pre class="output line-numbers">${formatJsonWithLineNumbers(
-          highlightText(item.pretty || "", searchTerm)
+          searchTerm && highlightOn
+            ? highlightText(item.pretty || "", searchTerm)
+            : syntaxHighlightJson(item.pretty || "")
         )}</pre>
       </div>
       
@@ -590,6 +673,13 @@ document
   .getElementById("highlightSearch")
   ?.addEventListener("change", searchLogs);
 document.getElementById("regexMode")?.addEventListener("change", searchLogs);
+// Флаги уникальные/дубликаты теперь применяются на лету.
+document
+  .getElementById("showOnlyUnique")
+  ?.addEventListener("change", searchLogs);
+document
+  .getElementById("showDuplicates")
+  ?.addEventListener("change", searchLogs);
 
 // ============================================
 // ОБРАБОТКА ФАЙЛОВ
@@ -597,11 +687,14 @@ document.getElementById("regexMode")?.addEventListener("change", searchLogs);
 document.getElementById("logsFile").addEventListener("change", async (e) => {
   const f = e.target.files[0];
   const info = document.getElementById("logsFileInfo");
+  const picker = document.getElementById("logsFilePicker");
   if (!f) {
-    info.textContent = "";
+    info.textContent = "Файл не выбран";
+    picker?.classList.remove("has-file");
     return;
   }
   info.textContent = `${f.name} (${formatBytes(f.size)})`;
+  picker?.classList.add("has-file");
   const txt = await f.text();
   document.getElementById("logsInput").value = txt;
   showNotification("Файл загружен успешно");
@@ -610,6 +703,18 @@ document.getElementById("logsFile").addEventListener("change", async (e) => {
 // ============================================
 // ОСНОВНАЯ ОБРАБОТКА ЛОГОВ
 // ============================================
+// Полный набор паттернов извлечения (UI-выбор убран — извлекаем по всем).
+const ALL_EXTRACTION_PATTERNS = [
+  "internalRequest",
+  "externalRequest",
+  "internalResponse",
+  "externalResponse",
+  "request",
+  "args",
+  "response",
+  "afterColon",
+];
+
 document.getElementById("btnNormalize").addEventListener("click", async () => {
   const input = document.getElementById("logsInput").value;
 
@@ -618,9 +723,10 @@ document.getElementById("btnNormalize").addEventListener("click", async () => {
     return;
   }
 
-  const pats = Array.from(document.querySelectorAll(".pat:checked")).map(
-    (x) => x.value
-  );
+  // Паттерны извлечения всегда включены целиком — система сама определяет,
+  // что извлекать. UI-выбор паттернов убран; шлём полный набор (включая args),
+  // чтобы поведение совпадало с прежним «все галочки включены».
+  const pats = ALL_EXTRACTION_PATTERNS;
   const replaceEscapedNewlines = document.getElementById("replaceEsc").checked;
   const minAfterColonLength = parseInt(
     document.getElementById("minLen").value || "50",
@@ -654,9 +760,6 @@ document.getElementById("btnNormalize").addEventListener("click", async () => {
       showNotification("Отчет скопирован в буфер обмена");
     };
 
-    const showOnlyUnique = document.getElementById("showOnlyUnique").checked;
-    const showDuplicates = document.getElementById("showDuplicates").checked;
-
     allLogItems = res.items || [];
 
     allLogItems.forEach((item) => {
@@ -669,14 +772,11 @@ document.getElementById("btnNormalize").addEventListener("click", async () => {
       }
     });
 
-    filteredItems = allLogItems.filter((item) => {
-      const isDup = item.duplicateOf !== null && item.duplicateOf !== undefined;
-      if (showOnlyUnique && isDup && !showDuplicates) return false;
-      return true;
-    });
-
+    // Фильтрация (вкл. уникальные/дубликаты), сортировка и рендер — в searchLogs.
     searchLogs();
     saveToLocalStorage();
+    document.getElementById("btnShowLastResult")?.classList.remove("hidden");
+    navigate("#logsResult"); // переход на страницу результатов
     showNotification(`Обработано ${allLogItems.length} сообщений`, "success");
   } catch (error) {
     console.error("Error processing logs:", error);
@@ -691,7 +791,8 @@ document.getElementById("btnLogsReset").addEventListener("click", () => {
   document.getElementById("logsInput").value = "";
   document.getElementById("logsFile").value = "";
   document.getElementById("logsSearch").value = "";
-  setText("logsFileInfo", "");
+  setText("logsFileInfo", "Файл не выбран");
+  document.getElementById("logsFilePicker")?.classList.remove("has-file");
   setText("logsStats", "");
   document.getElementById("logsItems").innerHTML = "";
   document.getElementById("btnDownload").disabled = true;
@@ -712,6 +813,7 @@ document.getElementById("btnLogsReset").addEventListener("click", () => {
   updateSearchHistory();
   updateChart();
   updateSearchCounter();
+  document.getElementById("btnShowLastResult")?.classList.add("hidden");
 
   showNotification("Все данные очищены", "success");
 });
@@ -749,6 +851,7 @@ window.addEventListener("load", () => {
     filteredItems = allLogItems;
     renderLogItems();
     updateSearchHistory();
+    document.getElementById("btnShowLastResult")?.classList.remove("hidden");
     showNotification("Данные восстановлены из автосохранения", "success");
   }
 });
@@ -759,11 +862,14 @@ window.addEventListener("load", () => {
 document.getElementById("jsonFile").addEventListener("change", async (e) => {
   const f = e.target.files[0];
   const info = document.getElementById("jsonFileInfo");
+  const picker = document.getElementById("jsonFilePicker");
   if (!f) {
-    info.textContent = "";
+    info.textContent = "Файл не выбран";
+    picker?.classList.remove("has-file");
     return;
   }
   info.textContent = `${f.name} (${formatBytes(f.size)})`;
+  picker?.classList.add("has-file");
   const txt = await f.text();
   document.getElementById("jsonInput").value = txt;
 });
@@ -782,7 +888,7 @@ async function jsonAction(action) {
       input,
     });
     const out = res.output ?? "";
-    document.getElementById("jsonOutput").textContent = out;
+    document.getElementById("jsonOutput").innerHTML = syntaxHighlightJson(out);
     document.getElementById("jsonStats").textContent = res.stats
       ? `Вход: ${res.stats.inputBytes} B, Выход: ${res.stats.outputBytes} B, ${res.stats.durationMs} мс`
       : "";
@@ -848,7 +954,7 @@ document.querySelectorAll('input[name="jsonMode"]').forEach((radio) => {
       wrapperButtons?.classList.remove("hidden");
       if (hint)
         hint.textContent =
-          'Wrap оборачивает значения в {"value": ...}, Unwrap разворачивает обратно';
+          'Wrap/Unwrap оборачивают/разворачивают значения JSON; «Числа → value» собирает JSON-массив {"value": "..."} из набора чисел';
     }
 
     // Очищаем вывод при смене режима
@@ -900,7 +1006,7 @@ async function handleJsonValueAction(action) {
     const res = await response.json();
 
     const out = res.output ?? "";
-    document.getElementById("jsonOutput").textContent = out;
+    document.getElementById("jsonOutput").innerHTML = syntaxHighlightJson(out);
     document.getElementById("jsonStats").textContent = res.stats
       ? `Вход: ${res.stats.inputBytes} B, Выход: ${res.stats.outputBytes} B, ${res.stats.durationMs} мс | ${cfg.statsSuffix}`
       : "";
@@ -941,17 +1047,60 @@ async function handleJsonValueAction(action) {
 document.getElementById("btnWrap")?.addEventListener("click", () => handleJsonValueAction("wrap"));
 document.getElementById("btnUnwrap")?.addEventListener("click", () => handleJsonValueAction("unwrap"));
 
+// Числа → value: находит все числа в поле ввода (любой разделитель) и оборачивает
+// каждое в {"value": "<число>"}, собирая JSON-массив. Полностью на клиенте.
+function wrapNumbersToValueJson() {
+  const input = document.getElementById("jsonInput").value;
+  const numbers = input.match(/\d+/g) || [];
+
+  if (numbers.length === 0) {
+    showNotification("В поле ввода нет чисел для обёртки", "error");
+    return;
+  }
+
+  // value — строкой в кавычках (безопасно для очень длинных чисел).
+  // Формат: JSON-массив, по одному компактному объекту на строку.
+  const out =
+    "[\n" +
+    numbers.map((n) => `  {"value": "${n}"}`).join(",\n") +
+    "\n]";
+
+  document.getElementById("jsonOutput").innerHTML = syntaxHighlightJson(out);
+  document.getElementById("jsonStats").textContent = `Обёрнуто чисел: ${numbers.length}`;
+  document.getElementById("jsonErrors").textContent = "";
+  document.getElementById("jsonIntegrity").textContent = "";
+
+  const btnCopy = document.getElementById("btnCopyJson");
+  const btnDl = document.getElementById("btnDownloadJson");
+  btnCopy.disabled = false;
+  btnDl.disabled = false;
+  btnCopy.onclick = () => {
+    navigator.clipboard.writeText(out);
+    showNotification("Результат скопирован в буфер обмена");
+  };
+  btnDl.onclick = () => downloadText(out, "values.json");
+
+  showNotification(`Обёрнуто ${numbers.length} чисел`, "success");
+}
+
+document
+  .getElementById("btnWrapNumbers")
+  ?.addEventListener("click", wrapNumbersToValueJson);
+
 // ============================================
 // XML РАЗДЕЛ
 // ============================================
 document.getElementById("xmlFile").addEventListener("change", async (e) => {
   const f = e.target.files[0];
   const info = document.getElementById("xmlFileInfo");
+  const picker = document.getElementById("xmlFilePicker");
   if (!f) {
-    info.textContent = "";
+    info.textContent = "Файл не выбран";
+    picker?.classList.remove("has-file");
     return;
   }
   info.textContent = `${f.name} (${formatBytes(f.size)})`;
+  picker?.classList.add("has-file");
   const txt = await f.text();
   document.getElementById("xmlInput").value = txt;
 });

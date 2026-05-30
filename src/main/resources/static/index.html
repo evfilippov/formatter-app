@@ -1,58 +1,182 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
-    <title>Data & Log Formatter</title>
+    <title>DataStudio — JSON · XML · Логи</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Тема выставляется до отрисовки, чтобы не было вспышки -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("theme") || "dark";
+          document.documentElement.setAttribute("data-theme", t);
+        } catch (e) {}
+      })();
+    </script>
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <header>
-      <div class="header-inner">
-        <div class="brand">Data & Log Formatter</div>
-        <nav>
-          <a href="#home">Главная</a>
-          <a href="#logs">Логи</a>
-          <a href="#json">JSON</a>
-          <a href="#xml">XML</a>
-        </nav>
-        <div class="limits">Макс. 10 МБ · Тайм-аут 15 c</div>
-      </div>
-    </header>
-
-    <main>
-      <!-- HOME -->
-      <section id="home" class="route">
-        <h1>Выберите область</h1>
-        <div class="cards3">
-          <div class="card clickable" onclick="navigate('#logs')">
-            <h2>📋 Логи</h2>
-            <p>
-              Извлечение JSON, форматирование и дедупликация. Поиск, фильтрация,
-              экспорт и сравнение логов.
-            </p>
-          </div>
-          <div class="card clickable" onclick="navigate('#json')">
-            <h2>🔧 JSON</h2>
-            <p>Pretty / Minify / Validate. Проверка целостности.</p>
-          </div>
-          <div class="card clickable" onclick="navigate('#xml')">
-            <h2>📄 XML</h2>
-            <p>
-              Pretty / Minify / Validate. Escape/Unescape для JSON-строки.
-              Проверка целостности.
-            </p>
-          </div>
+    <div class="app-shell">
+      <!-- САЙДБАР -->
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span class="logo">⚡</span>
+          DataStudio
         </div>
-      </section>
 
-      <!-- LOGS -->
-      <section id="logs" class="route hidden">
-        <h1>📋 Анализ логов</h1>
+        <div class="sidebar-section">Инструменты</div>
+        <nav class="sidebar-nav">
+          <a href="#home" data-route="home"
+            ><span class="nav-icon">◇</span> Главная</a
+          >
+          <a href="#logs" data-route="logs"
+            ><span class="nav-icon">▤</span> Логи</a
+          >
+          <a href="#json" data-route="json"
+            ><span class="nav-icon">{ }</span> JSON</a
+          >
+          <a href="#xml" data-route="xml"
+            ><span class="nav-icon">‹›</span> XML</a
+          >
+        </nav>
 
-        <div class="logs-layout">
-          <!-- ПАНЕЛЬ РЕЗУЛЬТАТОВ -->
-          <div class="logs-results">
+        <div class="sidebar-footer">
+          <button id="themeToggle" class="theme-toggle" type="button">
+            <span id="themeToggleIcon">☾</span>
+            <span id="themeToggleLabel">Тёмная тема</span>
+          </button>
+          <div class="limits">Макс. 10 МБ · Тайм-аут 15 c</div>
+        </div>
+      </aside>
+
+      <!-- КОНТЕНТ -->
+      <div class="content">
+        <main>
+          <!-- HOME -->
+          <section id="home" class="route">
+            <div class="cards3 home-cards">
+              <div class="card clickable" onclick="navigate('#logs')">
+                <span class="card-icon">📋</span>
+                <h2>Logs</h2>
+              </div>
+              <div class="card clickable" onclick="navigate('#json')">
+                <span class="card-icon">🔧</span>
+                <h2>JSON</h2>
+              </div>
+              <div class="card clickable" onclick="navigate('#xml')">
+                <span class="card-icon">📄</span>
+                <h2>XML</h2>
+              </div>
+            </div>
+          </section>
+
+          <!-- LOGS -->
+          <section id="logs" class="route hidden">
+            <h1>📋 Анализ логов</h1>
+            <p class="page-sub">
+              Извлечение, нормализация и дедупликация JSON-сообщений из больших
+              логов.
+            </p>
+
+            <!-- СТРАНИЦА ВВОДА -->
+            <div class="logs-input-page">
+              <div class="input-card">
+                <div class="block">
+                  <label class="label">📁 Файл логов (до 10 МБ):</label>
+                  <label class="file-picker" for="logsFile" id="logsFilePicker">
+                    <input
+                      type="file"
+                      id="logsFile"
+                      accept=".txt,.log,.json,.ndjson"
+                      class="file-input-hidden"
+                    />
+                    <span class="file-picker-btn">Выбрать файл</span>
+                    <span id="logsFileInfo" class="file-picker-name"
+                      >Файл не выбран</span
+                    >
+                  </label>
+                </div>
+
+                <div class="block">
+                  <label class="label">📝 Или вставьте текст вручную:</label>
+                  <textarea
+                    id="logsInput"
+                    placeholder="Вставьте логи в формате NDJSON (каждая строка - отдельный JSON объект)..."
+                  ></textarea>
+                </div>
+
+                <div class="block options">
+                  <div class="opt-group">
+                    <label
+                      ><input type="checkbox" id="replaceEsc" checked />
+                      Заменять \n на переводы строк</label
+                    >
+                    <label
+                      >Min длина после двоеточия:
+                      <input type="number" id="minLen" value="50" min="0" />
+                    </label>
+                  </div>
+
+                  <div class="opt-group">
+                    <label
+                      ><input type="checkbox" id="showOnlyUnique" checked />
+                      Только уникальные</label
+                    >
+                    <label
+                      ><input type="checkbox" id="showDuplicates" /> Показывать
+                      дубликаты</label
+                    >
+                    <label
+                      ><input type="checkbox" id="autoSave" />
+                      Автосохранение</label
+                    >
+                    <label
+                      title="Искать в результатах по регулярному выражению (RegExp), а не по обычной подстроке"
+                      ><input type="checkbox" id="regexMode" /> Regex-поиск</label
+                    >
+                  </div>
+                </div>
+
+                <div class="buttons input-actions">
+                  <button id="btnNormalize" class="btn-primary btn-lg">
+                    ⚡ Извлечь и проанализировать
+                  </button>
+                  <button id="btnLogsReset" class="secondary">
+                    🗑️ Очистить всё
+                  </button>
+                  <button
+                    id="btnShowLastResult"
+                    class="secondary hidden"
+                    onclick="navigate('#logsResult')"
+                  >
+                    ↻ Последний результат
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- LOGS — СТРАНИЦА РЕЗУЛЬТАТОВ -->
+          <section id="logsResult" class="route hidden">
+            <div class="results-topbar">
+              <button
+                class="btn-back"
+                onclick="navigate('#logs')"
+                title="Вернуться к вводу"
+              >
+                ← Назад к вводу
+              </button>
+              <h1>📊 Результаты анализа</h1>
+            </div>
+
             <!-- Toolbar -->
             <div class="logs-toolbar">
               <div class="search-container">
@@ -117,7 +241,11 @@
             <div class="buttons mb8">
               <button id="btnDownload" disabled>📥 Скачать общий отчёт</button>
               <button id="btnCopyExport" disabled>📋 Копировать отчёт</button>
-              <button id="btnExportSelected" disabled>
+              <button
+                id="btnExportSelected"
+                disabled
+                title="Отметьте нужные сообщения галочками в карточках, затем нажмите — выбранные сохранятся в файл"
+              >
                 ✅ Экспорт выбранных
               </button>
               <button id="btnCompare" disabled>🔍 Сравнить (2)</button>
@@ -128,268 +256,186 @@
 
             <!-- Результаты -->
             <div id="logsItems" class="logs-items"></div>
-          </div>
+          </section>
 
-          <!-- ПАНЕЛЬ ВВОДА -->
-          <div class="logs-input">
-            <div class="block">
-              <label class="label">📁 Файл логов (до 10 МБ):</label>
-              <input
-                type="file"
-                id="logsFile"
-                accept=".txt,.log,.json,.ndjson"
-              />
-              <div id="logsFileInfo" class="hint"></div>
-            </div>
-
-            <div class="block">
-              <label class="label">📝 Или вставьте текст вручную:</label>
-              <textarea
-                id="logsInput"
-                placeholder="Вставьте логи в формате NDJSON (каждая строка - отдельный JSON объект)..."
-              ></textarea>
-            </div>
-
-            <div class="block options">
-              <div class="opt-group">
-                <div class="opt-title">Паттерны извлечения:</div>
-                <label
-                  ><input
-                    type="checkbox"
-                    class="pat"
-                    value="internalRequest"
-                    checked
-                  />
-                  internalRequest</label
-                >
-                <label
-                  ><input
-                    type="checkbox"
-                    class="pat"
-                    value="externalRequest"
-                    checked
-                  />
-                  externalRequest</label
-                >
-                <label
-                  ><input
-                    type="checkbox"
-                    class="pat"
-                    value="internalResponse"
-                    checked
-                  />
-                  internalResponse</label
-                >
-                <label
-                  ><input
-                    type="checkbox"
-                    class="pat"
-                    value="externalResponse"
-                    checked
-                  />
-                  externalResponse</label
-                >
-                <label
-                  ><input type="checkbox" class="pat" value="request" checked />
-                  request</label
-                >
-                <label
-                  ><input type="checkbox" class="pat" value="args" checked />
-                  args (для method execution логов)</label
-                >
-                <label
-                  ><input
-                    type="checkbox"
-                    class="pat"
-                    value="response"
-                    checked
-                  />
-                  response</label
-                >
-                <label
-                  ><input
-                    type="checkbox"
-                    class="pat"
-                    value="afterColon"
-                    checked
-                  />
-                  afterColon</label
-                >
+          <!-- JSON -->
+          <section id="json" class="route hidden">
+            <h1>🔧 JSON</h1>
+            <p class="page-sub">
+              Форматирование, минификация и проверка JSON.
+            </p>
+            <div class="io-layout">
+              <!-- ПОЛЕ ВВОДА -->
+              <div class="io-field">
+                <label class="label">Ввод</label>
+                <textarea
+                  id="jsonInput"
+                  placeholder="Вставьте JSON..."
+                ></textarea>
               </div>
 
-              <div class="opt-group">
-                <label
-                  ><input type="checkbox" id="replaceEsc" checked /> Заменять \n
-                  на переводы строк</label
-                >
-                <label
-                  >Min длина после двоеточия:
+              <!-- ПОЛЕ ВЫВОДА -->
+              <div class="io-field">
+                <label class="label">Результат</label>
+                <pre id="jsonOutput" class="output"></pre>
+              </div>
+
+              <!-- ДЕЙСТВИЯ ВВОДА -->
+              <div class="io-controls">
+                <label class="file-picker" for="jsonFile" id="jsonFilePicker">
                   <input
-                    type="number"
-                    id="minLen"
-                    value="50"
-                    min="0"
-                    style="width: 90px"
+                    type="file"
+                    id="jsonFile"
+                    accept=".json,.txt"
+                    class="file-input-hidden"
                   />
+                  <span class="file-picker-btn">Выбрать файл</span>
+                  <span id="jsonFileInfo" class="file-picker-name"
+                    >Файл не выбран</span
+                  >
                 </label>
+
+                <div class="options">
+                  <div class="opt-group">
+                    <div class="opt-title">🎯 Режим обработки:</div>
+                    <label>
+                      <input
+                        type="radio"
+                        name="jsonMode"
+                        value="format"
+                        checked
+                      />
+                      Форматирование
+                    </label>
+                    <label>
+                      <input type="radio" name="jsonMode" value="wrapper" />
+                      Value Wrapper
+                    </label>
+                  </div>
+                </div>
+
+                <div class="buttons" id="formatButtons">
+                  <button id="btnPretty" class="btn-primary">Pretty</button>
+                  <button id="btnMinify">Minify</button>
+                  <button id="btnValidate" class="secondary">Validate</button>
+                </div>
+
+                <div class="buttons hidden" id="wrapperButtons">
+                  <button id="btnWrap" class="btn-primary">📦 Wrap Values</button>
+                  <button id="btnUnwrap" class="btn-primary">
+                    📂 Unwrap Values
+                  </button>
+                  <button
+                    id="btnWrapNumbers"
+                    class="btn-primary"
+                    title="Найти все числа в поле ввода и обернуть каждое в {&quot;value&quot;: &quot;...&quot;}, собрав JSON-массив"
+                  >
+                    🔢 Числа → value
+                  </button>
+                </div>
+
+                <div class="hint">
+                  💡
+                  <span id="jsonModeHint"
+                    >Pretty форматирует с отступами, Minify убирает
+                    пробелы</span
+                  >
+                </div>
               </div>
 
-              <div class="opt-group">
-                <label
-                  ><input type="checkbox" id="showOnlyUnique" checked /> Только
-                  уникальные</label
-                >
-                <label
-                  ><input type="checkbox" id="showDuplicates" /> Показывать
-                  дубликаты</label
-                >
-                <label
-                  ><input type="checkbox" id="autoSave" /> Автосохранение</label
-                >
-                <label
-                  ><input type="checkbox" id="regexMode" /> Regex поиск</label
-                >
+              <!-- ДЕЙСТВИЯ ВЫВОДА -->
+              <div class="io-controls">
+                <div id="jsonStats" class="stats"></div>
+                <div id="jsonIntegrity" class="hint"></div>
+                <div id="jsonErrors" class="errors"></div>
+                <div class="buttons">
+                  <button id="btnCopyJson" disabled>Копировать результат</button>
+                  <button id="btnDownloadJson" disabled>
+                    Скачать result.json
+                  </button>
+                </div>
               </div>
             </div>
+          </section>
 
-            <div class="buttons">
-              <button id="btnNormalize" class="btn-primary">
-                ⚡ Извлечь и проанализировать
-              </button>
-              <button id="btnLogsReset" class="secondary">
-                🗑️ Очистить всё
-              </button>
-            </div>
+          <!-- XML -->
+          <section id="xml" class="route hidden">
+            <h1>📄 XML</h1>
+            <p class="page-sub">
+              Форматирование, минификация и проверка XML.
+            </p>
+            <div class="io-layout">
+              <!-- ПОЛЕ ВВОДА -->
+              <div class="io-field">
+                <label class="label">Ввод</label>
+                <textarea
+                  id="xmlInput"
+                  placeholder="Вставьте XML или XML в виде JSON-строки..."
+                ></textarea>
+              </div>
 
-            <div class="hint" style="margin-top: 12px">
-              💡 Подсказка: используйте Ctrl+F для быстрого поиска, Ctrl+G для
-              перехода к сообщению
-            </div>
-          </div>
-        </div>
-      </section>
+              <!-- ПОЛЕ ВЫВОДА -->
+              <div class="io-field">
+                <label class="label">Результат</label>
+                <pre id="xmlOutput" class="output"></pre>
+              </div>
 
-      <!-- JSON -->
-      <section id="json" class="route hidden">
-        <h1>🔧 JSON Formatter</h1>
-        <div class="two-cols">
-          <div class="left">
-            <div class="block">
-              <label class="label">Файл (до 10 МБ):</label>
-              <input type="file" id="jsonFile" accept=".json,.txt" />
-              <div id="jsonFileInfo" class="hint"></div>
-            </div>
-            <div class="block">
-              <label class="label">Или вставьте текст вручную:</label>
-              <textarea
-                id="jsonInput"
-                placeholder="Вставьте JSON..."
-              ></textarea>
-            </div>
-
-            <!-- НОВАЯ СЕКЦИЯ ОПЦИЙ -->
-            <div class="block options" style="margin-bottom: 12px">
-              <div class="opt-group">
-                <div class="opt-title">🎯 Режим обработки:</div>
-                <label style="margin-right: 10px">
-                  <input type="radio" name="jsonMode" value="format" checked />
-                  Форматирование
+              <!-- ДЕЙСТВИЯ ВВОДА -->
+              <div class="io-controls">
+                <label class="file-picker" for="xmlFile" id="xmlFilePicker">
+                  <input
+                    type="file"
+                    id="xmlFile"
+                    accept=".xml,.txt"
+                    class="file-input-hidden"
+                  />
+                  <span class="file-picker-btn">Выбрать файл</span>
+                  <span id="xmlFileInfo" class="file-picker-name"
+                    >Файл не выбран</span
+                  >
                 </label>
-                <label>
-                  <input type="radio" name="jsonMode" value="wrapper" />
-                  Value Wrapper
-                </label>
+
+                <div class="options">
+                  <div class="opt-group">
+                    <label
+                      ><input type="checkbox" id="xmlUnescape" /> Unescape из
+                      JSON-строки</label
+                    >
+                    <label
+                      ><input type="checkbox" id="xmlKeepDecl" checked />
+                      Сохранить XML декларацию</label
+                    >
+                    <label
+                      ><input type="checkbox" id="xmlEscape" checked /> Escape
+                      для JSON-строки</label
+                    >
+                  </div>
+                </div>
+
+                <div class="buttons">
+                  <button id="btnXmlPretty" class="btn-primary">Pretty</button>
+                  <button id="btnXmlMinify">Minify</button>
+                  <button id="btnXmlValidate" class="secondary">Validate</button>
+                </div>
+              </div>
+
+              <!-- ДЕЙСТВИЯ ВЫВОДА -->
+              <div class="io-controls">
+                <div id="xmlStats" class="stats"></div>
+                <div id="xmlIntegrity" class="hint"></div>
+                <div id="xmlErrors" class="errors"></div>
+                <div class="buttons">
+                  <button id="btnCopyXml" disabled>Копировать результат</button>
+                  <button id="btnDownloadXml" disabled>
+                    Скачать result.xml
+                  </button>
+                </div>
               </div>
             </div>
-
-            <!-- Кнопки для форматирования -->
-            <div class="buttons" id="formatButtons">
-              <button id="btnPretty">Pretty</button>
-              <button id="btnMinify">Minify</button>
-              <button id="btnValidate" class="secondary">Validate</button>
-            </div>
-
-            <!-- Кнопки для wrapper (скрыты по умолчанию) -->
-            <div class="buttons hidden" id="wrapperButtons">
-              <button id="btnWrap" class="btn-primary">📦 Wrap Values</button>
-              <button id="btnUnwrap" class="btn-primary">
-                📂 Unwrap Values
-              </button>
-            </div>
-
-            <!-- Подсказка -->
-            <div class="hint" style="margin-top: 12px">
-              💡
-              <span id="jsonModeHint"
-                >Pretty форматирует с отступами, Minify убирает пробелы</span
-              >
-            </div>
-          </div>
-          <div class="right">
-            <div id="jsonOutput" class="output"></div>
-            <div id="jsonStats" class="stats"></div>
-            <div id="jsonIntegrity" class="hint"></div>
-            <div id="jsonErrors" class="errors"></div>
-            <div class="buttons">
-              <button id="btnCopyJson" disabled>Копировать результат</button>
-              <button id="btnDownloadJson" disabled>Скачать result.json</button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- XML -->
-      <section id="xml" class="route hidden">
-        <h1>📄 XML Formatter</h1>
-        <div class="two-cols">
-          <div class="left">
-            <div class="block">
-              <label class="label">Файл (до 10 МБ):</label>
-              <input type="file" id="xmlFile" accept=".xml,.txt" />
-              <div id="xmlFileInfo" class="hint"></div>
-            </div>
-            <div class="block">
-              <label class="label">Или вставьте текст вручную:</label>
-              <textarea
-                id="xmlInput"
-                placeholder="Вставьте XML или XML в виде JSON-строки..."
-              ></textarea>
-            </div>
-            <div class="block options">
-              <div class="opt-group">
-                <label
-                  ><input type="checkbox" id="xmlUnescape" /> Unescape из
-                  JSON-строки</label
-                >
-                <label
-                  ><input type="checkbox" id="xmlKeepDecl" checked /> Сохранить
-                  XML декларацию</label
-                >
-                <label
-                  ><input type="checkbox" id="xmlEscape" checked /> Escape для
-                  JSON-строки</label
-                >
-              </div>
-            </div>
-            <div class="buttons">
-              <button id="btnXmlPretty">Pretty</button>
-              <button id="btnXmlMinify">Minify</button>
-              <button id="btnXmlValidate" class="secondary">Validate</button>
-            </div>
-          </div>
-          <div class="right">
-            <div id="xmlOutput" class="output"></div>
-            <div id="xmlStats" class="stats"></div>
-            <div id="xmlIntegrity" class="hint"></div>
-            <div id="xmlErrors" class="errors"></div>
-            <div class="buttons">
-              <button id="btnCopyXml" disabled>Копировать результат</button>
-              <button id="btnDownloadXml" disabled>Скачать result.xml</button>
-            </div>
-          </div>
-        </div>
-      </section>
-    </main>
+          </section>
+        </main>
+      </div>
+    </div>
 
     <!-- Модальное окно сравнения -->
     <div id="compareModal" class="modal hidden">
