@@ -38,7 +38,7 @@
 - Создать **Access Token** (Account Settings → Security) и логиниться им, а не паролем.
 
 ### 2.2. Гигиена перед сборкой (рекомендуемые правки репозитория — по согласованию)
-- [ ] **Добавить `.dockerignore`** (сейчас его НЕТ). Исключить из контекста сборки: `target/`, `node_modules/`, `e2e/`, `test-results/`, `playwright-report/`, `.git/`, `*.md`. → быстрее сборка, меньше контекст.
+- [x] **`.dockerignore` добавлен** (2026-05-30): из контекста сборки исключены `target/`, `node_modules/`, `e2e*/`, `test-results/`, `playwright-report/`, `.git/`, `docs/`, `*.md`.
 - [ ] **Запуск не от root** в runtime-образе (добавить непривилегированного пользователя + `USER`). Безопасность.
 - [ ] **OCI-метки** в Dockerfile: `org.opencontainers.image.title/description/source/version/licenses`. Красиво и информативно на Hub.
 - [ ] (Опц.) Spring Boot **layered jar** для лучшего кэширования слоёв.
@@ -47,14 +47,14 @@
 - [ ] Завести **версионирование** (тег образа = версия приложения, напр. из git-тега).
 
 ### 2.3. Сборка и публикация
+Образ публикуется как **`evgen/datastudio`** (теги `1.0.0` и `latest`).
 ```bash
-docker login -u <username>
-# тег = версия + latest
-docker build -t <username>/datastudio:1.0.0 -t <username>/datastudio:latest .
-docker push <username>/datastudio:1.0.0
-docker push <username>/datastudio:latest
+docker login -u evgen
+docker build -t evgen/datastudio:1.0.0 -t evgen/datastudio:latest .
+docker push evgen/datastudio:1.0.0
+docker push evgen/datastudio:latest
 # проверить опубликованный образ
-docker run --rm -p 8080:8080 <username>/datastudio:1.0.0   # → http://localhost:8080
+docker run --rm -p 8080:8080 evgen/datastudio:1.0.0   # → http://localhost:8080
 ```
 
 ### 2.4. Мульти-арх (опционально, для Mac/ARM)

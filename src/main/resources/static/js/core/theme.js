@@ -1,6 +1,8 @@
 // Переключатель темы (тёмная / светлая). Тема хранится в localStorage,
 // начальное значение выставляется inline-скриптом в <head> до отрисовки.
 
+import { STR } from "./strings.js";
+
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   try {
@@ -8,9 +10,10 @@ function applyTheme(theme) {
   } catch (e) {}
   const icon = document.getElementById("themeToggleIcon");
   const label = document.getElementById("themeToggleLabel");
-  if (icon) icon.textContent = theme === "dark" ? "☾" : "☀";
+  if (icon)
+    icon.textContent = theme === "dark" ? STR.theme.iconDark : STR.theme.iconLight;
   if (label)
-    label.textContent = theme === "dark" ? "Тёмная тема" : "Светлая тема";
+    label.textContent = theme === "dark" ? STR.theme.dark : STR.theme.light;
 }
 
 document.addEventListener("DOMContentLoaded", () => {

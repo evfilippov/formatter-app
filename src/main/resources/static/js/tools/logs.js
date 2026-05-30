@@ -23,6 +23,7 @@ import {
   extractTraceId,
   formatJsonWithLineNumbers,
 } from "../core/highlight.js";
+import { STR } from "../core/strings.js";
 
 // ============================================
 // СОСТОЯНИЕ (приватное для модуля)
@@ -64,7 +65,7 @@ function saveToLocalStorage() {
       // иначе уведомление спамит. Об ошибке — сообщаем.
     } catch (e) {
       console.error("Error saving to localStorage:", e);
-      showNotification("Ошибка автосохранения", "error");
+      showNotification(STR.logs.saveError, "error");
     }
   }
 }
@@ -159,7 +160,10 @@ function updateSearchCounter() {
   const counter = document.getElementById("searchCounter");
   if (counter) {
     if (filteredItems.length !== allLogItems.length) {
-      counter.textContent = `${filteredItems.length} из ${allLogItems.length}`;
+      counter.textContent = STR.logs.counter(
+        filteredItems.length,
+        allLogItems.length
+      );
       counter.classList.add("active");
     } else {
       counter.classList.remove("active");
@@ -175,9 +179,8 @@ function updateSearchHistory() {
 
   if (searchHistory.length > 0) {
     const label = document.createElement("span");
-    label.textContent = "История: ";
-    label.style.fontSize = "12px";
-    label.style.color = "var(--text-secondary)";
+    label.className = "search-history-label";
+    label.textContent = STR.logs.historyLabel;
     historyDiv.appendChild(label);
 
     searchHistory.forEach((term) => {
@@ -250,25 +253,25 @@ function buildItemCard(item, searchTerm, highlightOn) {
       checkbox,
       el("div", { class: "item-title" }, [
         el("span", { class: `item-type-icon ${item.key?.toLowerCase() || ""}` }),
-        `СООБЩЕНИЕ ${item.number}: `,
+        STR.logs.cardMessage(item.number),
         el("span", { html: highlightText(item.key?.toUpperCase() || "", searchTerm) }),
       ]),
       traceId
-        ? el("span", { class: "badge", title: `traceId: ${traceId}`, text: `🔗 ${traceIdShort}` })
+        ? el("span", { class: "badge", title: `traceId: ${traceId}`, text: STR.logs.cardTrace(traceIdShort) })
         : null,
-      isDup ? el("span", { class: "badge dup", text: `Дубликат №${item.duplicateOf}` }) : null,
+      isDup ? el("span", { class: "badge dup", text: STR.logs.cardDup(item.duplicateOf) }) : null,
     ]),
     el("div", { class: "item-header-right" }, [
-      el("span", { class: "badge", title: "Строк", text: `📝 ${item.lines}` }),
-      el("span", { class: "badge", title: "Размер", text: `📦 ${formatBytes(item.rawLength)}` }),
+      el("span", { class: "badge", title: STR.logs.cardLinesTitle, text: STR.logs.cardLines(item.lines) }),
+      el("span", { class: "badge", title: STR.logs.cardSizeTitle, text: STR.logs.cardSize(formatBytes(item.rawLength)) }),
       el("span", { class: "item-toggle", text: "▼" }),
     ]),
   ]);
 
   const meta = el("div", { class: "item-meta" }, [
-    timestamp ? el("span", { text: `⏰ ${new Date(timestamp).toLocaleString("ru-RU")}` }) : null,
-    el("span", { text: `📊 Значений: ${item.valueCount}` }),
-    el("span", { text: `🔤 Сырой размер: ${item.rawLength} байт` }),
+    timestamp ? el("span", { text: STR.logs.cardTime(new Date(timestamp).toLocaleString("ru-RU")) }) : null,
+    el("span", { text: STR.logs.cardValues(item.valueCount) }),
+    el("span", { text: STR.logs.cardRawSize(item.rawLength) }),
   ]);
 
   const content = el("div", { class: "item-content" }, [
@@ -279,15 +282,15 @@ function buildItemCard(item, searchTerm, highlightOn) {
   ]);
 
   const buttons = el("div", { class: "buttons" }, [
-    el("button", { text: "📋 Копировать JSON", on: { click: () => copyJson(item.number) } }),
-    el("button", { text: "📄 Копировать блок", on: { click: () => copyBlock(item.number) } }),
-    el("button", { text: "💾 Скачать", on: { click: () => downloadItem(item.number) } }),
-    el("button", { class: "secondary", text: "🔍 Сравнить", on: { click: () => addToCompare(item.number) } }),
+    el("button", { text: STR.logs.cardCopyJson, on: { click: () => copyJson(item.number) } }),
+    el("button", { text: STR.logs.cardCopyBlock, on: { click: () => copyBlock(item.number) } }),
+    el("button", { text: STR.logs.cardDownload, on: { click: () => downloadItem(item.number) } }),
+    el("button", { class: "secondary", text: STR.logs.cardCompare, on: { click: () => addToCompare(item.number) } }),
   ]);
 
   const star = el("span", {
     class: `item-star ${isStarred ? "starred" : ""}`,
-    title: isStarred ? "Убрать из избранного" : "Добавить в избранное",
+    title: isStarred ? STR.logs.starOn : STR.logs.starOff,
     text: isStarred ? "⭐" : "☆",
     on: { click: () => toggleStar(item.number) },
   });
@@ -334,7 +337,7 @@ function appendLogBatch() {
   if (remaining > 0) {
     const btn = document.createElement("button");
     btn.className = "show-more-btn secondary";
-    btn.textContent = `Показать ещё (осталось ${remaining})`;
+    btn.textContent = STR.logs.showMore(remaining);
     btn.addEventListener("click", appendLogBatch);
     itemsDiv.appendChild(btn);
   }
@@ -405,7 +408,7 @@ function copyJson(number) {
   const item = allLogItems.find((i) => i.number === number);
   if (item) {
     navigator.clipboard.writeText(item.pretty || "");
-    showNotification("JSON скопирован в буфер обмена");
+    showNotification(STR.logs.jsonCopied);
   }
 }
 
@@ -414,7 +417,7 @@ function copyBlock(number) {
   if (item) {
     const sep = buildSeparator(item.number, item.key, item.description, true);
     navigator.clipboard.writeText(sep + item.pretty);
-    showNotification("Блок скопирован в буфер обмена");
+    showNotification(STR.logs.blockCopied);
   }
 }
 
@@ -435,7 +438,7 @@ function addToCompare(number) {
     if (compareItems.length >= 2) {
       openCompareModal();
     } else {
-      showNotification("Выберите второй элемент для сравнения");
+      showNotification(STR.logs.pickSecond);
     }
   }
 }
@@ -446,15 +449,17 @@ function openCompareModal() {
   const modal = document.getElementById("compareModal");
   if (!modal) return;
 
-  document.getElementById(
-    "compareTitle1"
-  ).textContent = `Сообщение ${compareItems[0].number}: ${compareItems[0].key}`;
+  document.getElementById("compareTitle1").textContent = STR.logs.compareTitle(
+    compareItems[0].number,
+    compareItems[0].key
+  );
   document.getElementById("compareContent1").textContent =
     compareItems[0].pretty;
 
-  document.getElementById(
-    "compareTitle2"
-  ).textContent = `Сообщение ${compareItems[1].number}: ${compareItems[1].key}`;
+  document.getElementById("compareTitle2").textContent = STR.logs.compareTitle(
+    compareItems[1].number,
+    compareItems[1].key
+  );
   document.getElementById("compareContent2").textContent =
     compareItems[1].pretty;
 
@@ -493,7 +498,7 @@ function updateChart() {
       bar.className = "chart-bar";
       bar.style.height = `${(count / max) * 100}%`;
       bar.dataset.label = `${type} (${count})`;
-      bar.title = `${type}: ${count} сообщений`;
+      bar.title = STR.logs.chartBar(type, count);
       chart.appendChild(bar);
     });
   } else {
@@ -509,7 +514,7 @@ document.getElementById("btnCollapseAll")?.addEventListener("click", () => {
     card.classList.add("collapsed");
     card.classList.remove("expanded");
   });
-  showNotification("Все карточки свернуты");
+  showNotification(STR.logs.collapsedAll);
 });
 
 document.getElementById("btnExpandAll")?.addEventListener("click", () => {
@@ -517,7 +522,7 @@ document.getElementById("btnExpandAll")?.addEventListener("click", () => {
     card.classList.remove("collapsed");
     card.classList.add("expanded");
   });
-  showNotification("Все карточки развернуты");
+  showNotification(STR.logs.expandedAll);
 });
 
 document.getElementById("btnExportSelected")?.addEventListener("click", () => {
@@ -525,7 +530,7 @@ document.getElementById("btnExportSelected")?.addEventListener("click", () => {
   if (selected.length > 0) {
     const exportData = selected.map((item) => item.pretty).join("\n\n");
     downloadText(exportData, `selected-messages-${Date.now()}.json`);
-    showNotification(`Экспортировано ${selected.length} сообщений`);
+    showNotification(STR.logs.exported(selected.length));
   }
 });
 
@@ -567,7 +572,7 @@ document.getElementById("logsFile").addEventListener("change", async (e) => {
   const info = document.getElementById("logsFileInfo");
   const picker = document.getElementById("logsFilePicker");
   if (!f) {
-    info.textContent = "Файл не выбран";
+    info.textContent = STR.common.fileNotChosen;
     picker?.classList.remove("has-file");
     return;
   }
@@ -575,7 +580,7 @@ document.getElementById("logsFile").addEventListener("change", async (e) => {
   picker?.classList.add("has-file");
   const txt = await f.text();
   document.getElementById("logsInput").value = txt;
-  showNotification("Файл загружен успешно");
+  showNotification(STR.logs.fileLoaded);
 });
 
 // ============================================
@@ -597,7 +602,7 @@ document.getElementById("btnNormalize").addEventListener("click", async () => {
   const input = document.getElementById("logsInput").value;
 
   if (!input.trim()) {
-    showNotification("Вставьте лог в поле ввода для анализа", "error");
+    showNotification(STR.logs.pasteFirst, "error");
     return;
   }
 
@@ -620,10 +625,7 @@ document.getElementById("btnNormalize").addEventListener("click", async () => {
   try {
     const res = await postJson("/api/logs/normalize", body);
 
-    setText(
-      "logsStats",
-      `📊 Записей: ${res.stats.totalEntries} | ✅ Извлечено: ${res.stats.extracted} | 🎯 Уникальных: ${res.stats.unique} | 📑 Дубликатов: ${res.stats.duplicates} | ⏱️ ${res.stats.durationMs} мс`
-    );
+    setText("logsStats", STR.logs.statsLine(res.stats));
 
     const exportText = res.export?.asText || "";
     const btnDownload = document.getElementById("btnDownload");
@@ -634,7 +636,7 @@ document.getElementById("btnNormalize").addEventListener("click", async () => {
       downloadText(exportText, res.export?.filename || "output.json");
     btnCopyExport.onclick = () => {
       navigator.clipboard.writeText(exportText);
-      showNotification("Отчет скопирован в буфер обмена");
+      showNotification(STR.logs.reportCopied);
     };
 
     allLogItems = res.items || [];
@@ -654,10 +656,10 @@ document.getElementById("btnNormalize").addEventListener("click", async () => {
     saveToLocalStorage();
     document.getElementById("btnShowLastResult")?.classList.remove("hidden");
     navigate("#logsResult"); // переход на страницу результатов
-    showNotification(`Обработано ${allLogItems.length} сообщений`, "success");
+    showNotification(STR.logs.processed(allLogItems.length), "success");
   } catch (error) {
     console.error("Error processing logs:", error);
-    showNotification("Ошибка обработки данных", "error");
+    showNotification(STR.logs.dataError, "error");
   }
 });
 
@@ -668,7 +670,7 @@ document.getElementById("btnLogsReset").addEventListener("click", () => {
   document.getElementById("logsInput").value = "";
   document.getElementById("logsFile").value = "";
   document.getElementById("logsSearch").value = "";
-  setText("logsFileInfo", "Файл не выбран");
+  setText("logsFileInfo", STR.common.fileNotChosen);
   document.getElementById("logsFilePicker")?.classList.remove("has-file");
   setText("logsStats", "");
   document.getElementById("logsItems").innerHTML = "";
@@ -692,7 +694,7 @@ document.getElementById("btnLogsReset").addEventListener("click", () => {
   updateSearchCounter();
   document.getElementById("btnShowLastResult")?.classList.add("hidden");
 
-  showNotification("Все данные очищены", "success");
+  showNotification(STR.logs.cleared, "success");
 });
 
 function buildSeparator(number, key, description, first) {
@@ -729,7 +731,7 @@ window.addEventListener("load", () => {
     renderLogItems();
     updateSearchHistory();
     document.getElementById("btnShowLastResult")?.classList.remove("hidden");
-    showNotification("Данные восстановлены из автосохранения", "success");
+    showNotification(STR.logs.restored, "success");
   }
 });
 
@@ -765,7 +767,7 @@ function clearFilters() {
   filteredItems = allLogItems;
   renderLogItems();
   updateSearchCounter();
-  showNotification("Фильтры очищены");
+  showNotification(STR.logs.filtersCleared);
 }
 
 // Неблокирующий ввод номера сообщения через нативный <dialog> (вместо prompt()).
@@ -801,14 +803,15 @@ function scrollToMessage(num) {
     card.classList.add("expanded");
     card.classList.remove("collapsed");
 
-    card.style.animation = "none";
-    setTimeout(() => {
-      card.style.animation = "pulse 0.5s ease-in-out";
-    }, 10);
+    // Перезапуск анимации подсветки через класс (без inline-стилей):
+    // снимаем класс, форсируем reflow, ставим снова.
+    card.classList.remove("pulse");
+    void card.offsetWidth;
+    card.classList.add("pulse");
 
-    showNotification(`Переход к сообщению №${num}`);
+    showNotification(STR.logs.jumpedTo(num));
   } else {
-    showNotification(`Сообщение №${num} не найдено`, "error");
+    showNotification(STR.logs.notFound(num), "error");
   }
 }
 
@@ -838,10 +841,7 @@ if (logsInput) {
   ["dragenter", "dragover"].forEach((eventName) => {
     logsInput.addEventListener(
       eventName,
-      () => {
-        logsInput.style.borderColor = "var(--primary)";
-        logsInput.style.background = "var(--primary-light)";
-      },
+      () => logsInput.classList.add("dragover"),
       false
     );
   });
@@ -849,10 +849,7 @@ if (logsInput) {
   ["dragleave", "drop"].forEach((eventName) => {
     logsInput.addEventListener(
       eventName,
-      () => {
-        logsInput.style.borderColor = "var(--border)";
-        logsInput.style.background = "var(--bg-code)";
-      },
+      () => logsInput.classList.remove("dragover"),
       false
     );
   });
@@ -865,7 +862,7 @@ if (logsInput) {
         const file = files[0];
         const text = await file.text();
         logsInput.value = text;
-        showNotification(`Файл ${file.name} загружен через Drag & Drop`);
+        showNotification(STR.logs.droppedFile(file.name));
       }
     },
     false
@@ -887,8 +884,7 @@ setInterval(() => {
 window.addEventListener("beforeunload", (e) => {
   if (allLogItems.length > 0 && !document.getElementById("autoSave")?.checked) {
     e.preventDefault();
-    e.returnValue =
-      "У вас есть несохраненные данные. Вы уверены, что хотите покинуть страницу?";
+    e.returnValue = STR.logs.beforeUnload;
     return e.returnValue;
   }
 });

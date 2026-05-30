@@ -4,13 +4,14 @@
 import { postJson } from "../core/api.js";
 import { showNotification, downloadText, formatBytes } from "../core/dom.js";
 import { syntaxHighlightJson } from "../core/highlight.js";
+import { STR } from "../core/strings.js";
 
 document.getElementById("jsonFile").addEventListener("change", async (e) => {
   const f = e.target.files[0];
   const info = document.getElementById("jsonFileInfo");
   const picker = document.getElementById("jsonFilePicker");
   if (!f) {
-    info.textContent = "Файл не выбран";
+    info.textContent = STR.common.fileNotChosen;
     picker?.classList.remove("has-file");
     return;
   }
@@ -24,7 +25,7 @@ async function jsonAction(action) {
   const input = document.getElementById("jsonInput").value;
 
   if (!input.trim()) {
-    showNotification("Вставьте JSON в поле ввода", "error");
+    showNotification(STR.json.pasteFirst, "error");
     return;
   }
 
@@ -36,34 +37,38 @@ async function jsonAction(action) {
     const out = res.output ?? "";
     document.getElementById("jsonOutput").innerHTML = syntaxHighlightJson(out);
     document.getElementById("jsonStats").textContent = res.stats
-      ? `Вход: ${res.stats.inputBytes} B, Выход: ${res.stats.outputBytes} B, ${res.stats.durationMs} мс`
+      ? STR.common.stats(
+          res.stats.inputBytes,
+          res.stats.outputBytes,
+          res.stats.durationMs
+        )
       : "";
     document.getElementById("jsonErrors").textContent =
       res.errors && res.errors.length ? res.errors.join("\n") : "";
     const integ = res.integrity;
     document.getElementById("jsonIntegrity").textContent = integ
-      ? `Целостность: strict=${integ.equalStrict}, normalized=${
-          integ.equalNormalized
-        }, in=${integ.inputHash?.slice(0, 8)}…, out=${integ.outputHash?.slice(
-          0,
-          8
-        )}…`
+      ? STR.common.integrity(
+          integ.equalStrict,
+          integ.equalNormalized,
+          integ.inputHash?.slice(0, 8),
+          integ.outputHash?.slice(0, 8)
+        )
       : "";
     document.getElementById("btnCopyJson").disabled = !out;
     document.getElementById("btnDownloadJson").disabled = !out;
     document.getElementById("btnCopyJson").onclick = () => {
       navigator.clipboard.writeText(out);
-      showNotification("JSON скопирован в буфер обмена");
+      showNotification(STR.json.copied);
     };
     document.getElementById("btnDownloadJson").onclick = () =>
       downloadText(out, "result.json");
 
     if (out) {
-      showNotification(`JSON ${action} выполнен успешно`, "success");
+      showNotification(STR.json.ok(action), "success");
     }
   } catch (error) {
     console.error("Error processing JSON:", error);
-    showNotification("Ошибка обработки JSON", "error");
+    showNotification(STR.json.error, "error");
   }
 }
 
@@ -88,15 +93,11 @@ document.querySelectorAll('input[name="jsonMode"]').forEach((radio) => {
     if (mode === "format") {
       formatButtons?.classList.remove("hidden");
       wrapperButtons?.classList.add("hidden");
-      if (hint)
-        hint.textContent =
-          "Pretty форматирует с отступами, Minify убирает пробелы";
+      if (hint) hint.textContent = STR.json.hintFormat;
     } else {
       formatButtons?.classList.add("hidden");
       wrapperButtons?.classList.remove("hidden");
-      if (hint)
-        hint.textContent =
-          'Wrap/Unwrap оборачивают/разворачивают значения JSON; «Числа → value» собирает JSON-массив {"value": "..."} из набора чисел';
+      if (hint) hint.textContent = STR.json.hintWrapper;
     }
 
     // Очищаем вывод при смене режима
@@ -111,13 +112,13 @@ document.querySelectorAll('input[name="jsonMode"]').forEach((radio) => {
 const JSON_VALUE_ACTIONS = {
   wrap: {
     url: "/api/format/wrap",
-    statsSuffix: '✅ Значения обернуты в {"value": ...}',
+    statsSuffix: STR.json.wrapSuffix,
     filename: "wrapped.json",
     errorLabel: "Error wrapping JSON:",
   },
   unwrap: {
     url: "/api/format/unwrap",
-    statsSuffix: "✅ Значения развернуты",
+    statsSuffix: STR.json.unwrapSuffix,
     filename: "unwrapped.json",
     errorLabel: "Error unwrapping JSON:",
   },
@@ -128,7 +129,7 @@ async function handleJsonValueAction(action) {
   const input = document.getElementById("jsonInput").value;
 
   if (!input.trim()) {
-    showNotification("Вставьте JSON в поле ввода", "error");
+    showNotification(STR.json.pasteFirst, "error");
     return;
   }
 
@@ -139,14 +140,18 @@ async function handleJsonValueAction(action) {
     const out = res.output ?? "";
     document.getElementById("jsonOutput").innerHTML = syntaxHighlightJson(out);
     document.getElementById("jsonStats").textContent = res.stats
-      ? `Вход: ${res.stats.inputBytes} B, Выход: ${res.stats.outputBytes} B, ${res.stats.durationMs} мс | ${cfg.statsSuffix}`
+      ? `${STR.common.stats(
+          res.stats.inputBytes,
+          res.stats.outputBytes,
+          res.stats.durationMs
+        )} | ${cfg.statsSuffix}`
       : "";
     document.getElementById("jsonErrors").textContent =
       res.errors && res.errors.length ? res.errors.join("\n") : "";
 
     const integ = res.integrity;
     document.getElementById("jsonIntegrity").textContent = integ
-      ? `Данные сохранены, структура изменена`
+      ? STR.json.structureChanged
       : "";
 
     document.getElementById("btnCopyJson").disabled = !out;
@@ -155,7 +160,7 @@ async function handleJsonValueAction(action) {
     if (out) {
       document.getElementById("btnCopyJson").onclick = () => {
         navigator.clipboard.writeText(out);
-        showNotification("JSON скопирован в буфер обмена");
+        showNotification(STR.json.copied);
       };
       document.getElementById("btnDownloadJson").onclick = () =>
         downloadText(out, cfg.filename);
@@ -163,7 +168,7 @@ async function handleJsonValueAction(action) {
   } catch (error) {
     console.error(cfg.errorLabel, error);
     document.getElementById("jsonErrors").textContent =
-      "Ошибка обработки: " + error.message;
+      STR.common.processError + error.message;
   }
 }
 
@@ -181,7 +186,7 @@ function wrapNumbersToValueJson() {
   const numbers = input.match(/\d+/g) || [];
 
   if (numbers.length === 0) {
-    showNotification("В поле ввода нет чисел для обёртки", "error");
+    showNotification(STR.json.noNumbers, "error");
     return;
   }
 
@@ -191,9 +196,9 @@ function wrapNumbersToValueJson() {
     "[\n" + numbers.map((n) => `  {"value": "${n}"}`).join(",\n") + "\n]";
 
   document.getElementById("jsonOutput").innerHTML = syntaxHighlightJson(out);
-  document.getElementById(
-    "jsonStats"
-  ).textContent = `Обёрнуто чисел: ${numbers.length}`;
+  document.getElementById("jsonStats").textContent = STR.json.wrappedCount(
+    numbers.length
+  );
   document.getElementById("jsonErrors").textContent = "";
   document.getElementById("jsonIntegrity").textContent = "";
 
@@ -203,11 +208,11 @@ function wrapNumbersToValueJson() {
   btnDl.disabled = false;
   btnCopy.onclick = () => {
     navigator.clipboard.writeText(out);
-    showNotification("Результат скопирован в буфер обмена");
+    showNotification(STR.json.resultCopied);
   };
   btnDl.onclick = () => downloadText(out, "values.json");
 
-  showNotification(`Обёрнуто ${numbers.length} чисел`, "success");
+  showNotification(STR.json.wrappedNotify(numbers.length), "success");
 }
 
 document

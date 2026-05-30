@@ -1,0 +1,26 @@
+# Сокращаем контекст сборки образа: в него не нужны ни сборочные артефакты,
+# ни зависимости/тесты фронта, ни история git, ни локальные файлы IDE.
+target/
+!**/src/main/**/target/
+
+# Node / Playwright (dev-only, к рантайму приложения отношения не имеют)
+node_modules/
+playwright-report/
+test-results/
+e2e/
+e2e-full/
+playwright.config.js
+package.json
+package-lock.json
+
+# VCS и локальное окружение
+.git/
+.gitignore
+.github/
+.claude/
+.idea/
+.vscode/
+
+# Документация и прочее, не влияющее на образ
+docs/
+*.md

@@ -4,8 +4,10 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/");
 });
 
-test("главная показывает карточки Logs / JSON / XML", async ({ page }) => {
-  await expect(page.locator(".home-cards .card", { hasText: "Logs" })).toBeVisible();
+test("главная показывает карточки Логи / JSON / XML", async ({ page }) => {
+  // Подписи берутся из словаря (core/strings.js) через data-i18n; карточка
+  // логов выровнена на RU — «Логи» (раньше было «Logs»).
+  await expect(page.locator(".home-cards .card", { hasText: "Логи" })).toBeVisible();
   await expect(page.locator(".home-cards .card", { hasText: "JSON" })).toBeVisible();
   await expect(page.locator(".home-cards .card", { hasText: "XML" })).toBeVisible();
 });

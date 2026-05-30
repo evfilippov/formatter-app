@@ -3,13 +3,14 @@
 
 import { postJson } from "../core/api.js";
 import { showNotification, downloadText, formatBytes } from "../core/dom.js";
+import { STR } from "../core/strings.js";
 
 document.getElementById("xmlFile").addEventListener("change", async (e) => {
   const f = e.target.files[0];
   const info = document.getElementById("xmlFileInfo");
   const picker = document.getElementById("xmlFilePicker");
   if (!f) {
-    info.textContent = "Файл не выбран";
+    info.textContent = STR.common.fileNotChosen;
     picker?.classList.remove("has-file");
     return;
   }
@@ -23,7 +24,7 @@ async function xmlAction(action) {
   const input = document.getElementById("xmlInput").value;
 
   if (!input.trim()) {
-    showNotification("Вставьте XML в поле ввода", "error");
+    showNotification(STR.xml.pasteFirst, "error");
     return;
   }
 
@@ -42,34 +43,38 @@ async function xmlAction(action) {
     const out = res.output ?? "";
     document.getElementById("xmlOutput").textContent = out;
     document.getElementById("xmlStats").textContent = res.stats
-      ? `Вход: ${res.stats.inputBytes} B, Выход: ${res.stats.outputBytes} B, ${res.stats.durationMs} мс`
+      ? STR.common.stats(
+          res.stats.inputBytes,
+          res.stats.outputBytes,
+          res.stats.durationMs
+        )
       : "";
     document.getElementById("xmlErrors").textContent =
       res.errors && res.errors.length ? res.errors.join("\n") : "";
     const integ = res.integrity;
     document.getElementById("xmlIntegrity").textContent = integ
-      ? `Целостность: strict=${integ.equalStrict}, normalized=${
-          integ.equalNormalized
-        }, in=${integ.inputHash?.slice(0, 8)}…, out=${integ.outputHash?.slice(
-          0,
-          8
-        )}…`
+      ? STR.common.integrity(
+          integ.equalStrict,
+          integ.equalNormalized,
+          integ.inputHash?.slice(0, 8),
+          integ.outputHash?.slice(0, 8)
+        )
       : "";
     document.getElementById("btnCopyXml").disabled = !out;
     document.getElementById("btnDownloadXml").disabled = !out;
     document.getElementById("btnCopyXml").onclick = () => {
       navigator.clipboard.writeText(out);
-      showNotification("XML скопирован в буфер обмена");
+      showNotification(STR.xml.copied);
     };
     document.getElementById("btnDownloadXml").onclick = () =>
       downloadText(out, ops.escapeForJson ? "result.txt" : "result.xml");
 
     if (out) {
-      showNotification(`XML ${action} выполнен успешно`, "success");
+      showNotification(STR.xml.ok(action), "success");
     }
   } catch (error) {
     console.error("Error processing XML:", error);
-    showNotification("Ошибка обработки XML", "error");
+    showNotification(STR.xml.error, "error");
   }
 }
 

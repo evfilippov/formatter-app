@@ -1032,6 +1032,16 @@ mark,
 .search-history:empty {
   display: none;
 }
+.search-history-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Подсветка поля ввода логов при перетаскивании файла (вместо inline-стилей). */
+#logsInput.dragover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
 
 .logs-items {
   display: flex;
@@ -1370,6 +1380,23 @@ mark,
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+/* Кратковременная подсветка карточки при переходе к сообщению (Ctrl+G).
+   Раньше задавалась inline-стилем с несуществующими keyframes — теперь класс. */
+.item-card.pulse {
+  animation: pulse 0.6s ease-in-out;
+}
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--accent-ring);
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--accent-ring);
+  }
+  100% {
+    box-shadow: 0 0 0 0 var(--accent-ring);
   }
 }
 

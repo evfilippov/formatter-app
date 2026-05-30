@@ -19,7 +19,29 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
 
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    // Быстрый дымовой набор — гоняется часто, headless, параллельно.
+    {
+      name: "chromium",
+      testDir: "./e2e",
+      use: { ...devices["Desktop Chrome"] },
+    },
+    // Полный UI-прогон — каждая кнопка/действие во всех разделах.
+    // ВСЕГДА с видимым браузером и замедлением (slowMo), чтобы можно было
+    // глазами проследить шаги. Запускать вручную после крупного блока работ:
+    //   npm run test:ui-full
+    {
+      name: "ui-full",
+      testDir: "./e2e-full",
+      use: {
+        ...devices["Desktop Chrome"],
+        headless: false, // браузер обязателен — смотрим вживую
+        viewport: { width: 1440, height: 900 },
+        launchOptions: { slowMo: 550 }, // пауза между действиями, мс
+        permissions: ["clipboard-read", "clipboard-write"],
+      },
+    },
+  ],
 
   webServer: {
     command: "docker compose up --build",
