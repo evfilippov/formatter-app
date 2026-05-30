@@ -10,7 +10,7 @@ Spring Boot 3.3 / Java 21 + статический фронтенд на ван�
 ## Быстрый старт (из Docker Hub)
 
 ```bash
-docker run --rm -p 8080:8080 evgen/datastudio:latest
+docker run --rm -p 8080:8080 e1vg/datastudio:latest
 ```
 
 Откройте http://localhost:8080. Чтобы закрепиться за версией на время
