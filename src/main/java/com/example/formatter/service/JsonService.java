@@ -218,20 +218,17 @@ public class JsonService {
     if (node == null || node.isNull()) {
       return node;
     }
-    
+
     if (node.isObject()) {
       ObjectNode unwrapped = NODE_FACTORY.objectNode();
       Iterator<String> fieldNames = node.fieldNames();
-      
+
       while (fieldNames.hasNext()) {
         String fieldName = fieldNames.next();
         JsonNode fieldValue = node.get(fieldName);
-        
-        // Проверяем, является ли это {"value": ...} паттерном
-        if (fieldValue.isObject() && 
-            fieldValue.size() == 1 && 
-            fieldValue.has("value")) {
-          // Разворачиваем
+
+        if (isValueWrapper(fieldValue)) {
+          // Разворачиваем {"value": ...} → значение
           unwrapped.set(fieldName, fieldValue.get("value"));
         } else if (fieldValue.isObject() || fieldValue.isArray()) {
           // Рекурсивно обрабатываем вложенные структуры
@@ -242,16 +239,26 @@ public class JsonService {
         }
       }
       return unwrapped;
-      
+
     } else if (node.isArray()) {
       ArrayNode unwrapped = NODE_FACTORY.arrayNode();
       for (JsonNode item : node) {
-        unwrapped.add(unwrapNode(item));
+        // Элемент массива тоже может быть обёрткой {"value": ...} — разворачиваем.
+        if (isValueWrapper(item)) {
+          unwrapped.add(item.get("value"));
+        } else {
+          unwrapped.add(unwrapNode(item));
+        }
       }
       return unwrapped;
     }
-    
+
     return node;
+  }
+
+  /** Узел вида {"value": ...} — единственное поле "value". */
+  private static boolean isValueWrapper(JsonNode n) {
+    return n != null && n.isObject() && n.size() == 1 && n.has("value");
   }
 
   /**

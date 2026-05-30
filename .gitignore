@@ -12,3 +12,10 @@ target/
 # ОС
 .DS_Store
 Thumbs.db
+
+# Node / Playwright (фронт-тесты, dev-only)
+node_modules/
+playwright-report/
+test-results/
+/blob-report/
+.playwright/

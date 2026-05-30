@@ -63,6 +63,21 @@ class JsonServiceTest {
   }
 
   @Test
+  void unwrap_unwrapsValueWrappersInsideArray() throws Exception {
+    // Регрессия: обёртки {"value": ...} как ЭЛЕМЕНТЫ массива тоже должны разворачиваться.
+    String input = "{\"payment_ids\": [ {\"value\": \"22341\"}, {\"value\": \"99\"} ]}";
+
+    FormatResponse res = service.unwrapValues(json(input));
+    assertTrue(res.errors().isEmpty());
+
+    String expectedHash = JsonUtils.canonicalHash(
+      JsonUtils.parse("{\"payment_ids\": [\"22341\", \"99\"]}"));
+    String actualHash = JsonUtils.canonicalHash(JsonUtils.parse(res.output()));
+    assertEquals(expectedHash, actualHash, "элементы-обёртки массива должны развернуться");
+    assertFalse(res.output().contains("\"value\""), "value не должно остаться в результате");
+  }
+
+  @Test
   void wrapThenUnwrap_isLosslessRoundTrip() throws Exception {
     String original = "{\"a\": 1, \"b\": \"text\", \"c\": {\"d\": true}, \"e\": [1, 2]}";
 

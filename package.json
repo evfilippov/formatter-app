@@ -1,0 +1,16 @@
+{
+  "name": "datastudio-frontend-tests",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "E2E браузерные тесты для DataStudio (Playwright). Dev-only: на поставку приложения не влияет — фронт остаётся статикой без сборки.",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

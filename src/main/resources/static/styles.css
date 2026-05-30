@@ -772,48 +772,6 @@ button:focus-visible {
   width: 90px;
 }
 
-/* паттерны извлечения логов — чипы-тумблеры */
-.opt-group label:has(.pat) {
-  gap: 7px;
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: var(--bg-elevated);
-  font-size: 12.5px;
-  transition: var(--transition);
-}
-.opt-group label:has(.pat:checked) {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--text-primary);
-}
-.opt-group .pat {
-  appearance: none;
-  width: 15px;
-  height: 15px;
-  border-radius: 4px;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-input);
-  cursor: pointer;
-  position: relative;
-  transition: var(--transition);
-  flex-shrink: 0;
-}
-.opt-group .pat:checked {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-.opt-group .pat:checked::after {
-  content: "✓";
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-size: 10px;
-  color: #fff;
-  font-weight: 700;
-}
-
 /* ============================================================
    ВЫВОД (output) + номера строк
    ============================================================ */
@@ -1079,6 +1037,12 @@ mark,
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.show-more-btn {
+  align-self: center;
+  margin-top: 4px;
+  min-width: 240px;
 }
 
 /* ============================================================
@@ -1349,6 +1313,31 @@ mark,
 }
 
 /* ============================================================
+   ДИАЛОГ «ПЕРЕЙТИ К СООБЩЕНИЮ» (нативный <dialog>)
+   ============================================================ */
+.jump-dialog {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+  padding: 22px;
+  min-width: 300px;
+}
+.jump-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(3px);
+}
+.jump-dialog form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.jump-dialog .buttons {
+  justify-content: flex-end;
+}
+
+/* ============================================================
    УВЕДОМЛЕНИЯ
    ============================================================ */
 .notification {
@@ -1388,11 +1377,8 @@ mark,
    АДАПТИВ
    ============================================================ */
 @media (max-width: 1080px) {
-  .logs-layout {
+  .io-layout {
     grid-template-columns: 1fr;
-  }
-  .logs-input {
-    position: static;
   }
 }
 

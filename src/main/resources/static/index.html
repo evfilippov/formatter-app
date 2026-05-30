@@ -459,6 +459,18 @@
       </div>
     </div>
 
-    <script src="/app.js"></script>
+    <!-- Неблокирующий ввод номера сообщения (Ctrl+G) -->
+    <dialog id="jumpDialog" class="jump-dialog">
+      <form method="dialog">
+        <label class="label" for="jumpInput">Перейти к сообщению №</label>
+        <input type="number" id="jumpInput" min="1" autocomplete="off" autofocus />
+        <div class="buttons">
+          <button value="go" class="btn-primary" type="submit">Перейти</button>
+          <button value="cancel" class="secondary" type="submit">Отмена</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="/js/main.js"></script>
   </body>
 </html>
